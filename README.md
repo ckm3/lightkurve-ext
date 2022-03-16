@@ -22,3 +22,10 @@ For example
     3: <TessLightCurve LABEL="TIC 386319774" SECTOR=45 AUTHOR=SPOC FLUX_ORIGIN=pdcsap_flux>
 
 Also the `lkx.search_local_TESSlightcurve()` function can search local TESS light curves more efficiently with a sector constructed directory.
+
+## Installation
+```
+git clone https://github.com/ckm3/lightkurve-ext.git
+cd lightkurve-ext
+pip install .
+```
