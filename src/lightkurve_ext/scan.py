@@ -8,11 +8,12 @@ import fnmatch
 import re
 
 
-def get_obsid_path(dir_path: str or Path) -> dict:
+def get_obsid_path(dir_path: str or Path, dump_results: bool = True) -> dict:
     """Given a directory, return a dict of ObsID and a list of paths of the files
 
     Args:
         dir_path (strorPath): input directory
+        dump_results (bool, optional): whether to dump the results to a file. Defaults to True.
 
     Returns:
         dict: obsid and paths of the files
@@ -43,7 +44,31 @@ def get_obsid_path(dir_path: str or Path) -> dict:
             obsid_path[obsid].append(file_path)
         except KeyError:
             obsid_path[obsid] = [file_path]
+
+        if dump_results:
+            create_obsid_path_file(obsid_path)
     return obsid_path
+
+
+def create_obsid_path_file(obsid_path_dict: dict) -> None:
+    """Create a file to save the obsid and paths of the files
+
+    Args:
+        obsid_path_dict (dict): obsid and paths of the files
+    """
+    import pickle
+
+    def dump_dict(path, dict):
+        with open(path, 'wb') as f:
+            pickle.dump(dict, f)
+
+    save_path = Path.home() / '.lightkurve_ext-cache'
+    if not save_path.exists():
+        save_path.mkdir()
+
+        dump_dict(save_path / "obsid_path_dict.pkl", obsid_path_dict)
+    else:
+        dump_dict(save_path / "obsid_path_dict.pkl", obsid_path_dict)
 
 
 if __name__ == '__main__':
