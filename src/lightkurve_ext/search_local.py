@@ -69,7 +69,7 @@ def search_local_lightcurve(
         Maximum number of products to return.
     Returns
     ------- 
-
+    LightCurve object
     """
     def kwargs_pattern_generator(
         target=target,
