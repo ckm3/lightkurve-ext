@@ -11,8 +11,8 @@ Some features are listed below:
 - lk provides a conventient interface to search for light cuves from MAST, but usually I already have downloaded some data. Our `lkx.LightCurveDirectory` class can handle directories contain light curves. `search_lightcurve()` method can search for the light curve files in the above directory and return them as a `lk.LightCurveCollection` object.
 - Before running the search, I highly recommend you to scan your target directories and crate a cache file. This can be done with a simple line of code and dramatically accelerate your following search work.
 ```
-    >>> import lightkurve_ext as lkx
-    >>> lkx.cache_obsid_path(local_path)
+>>> import lightkurve_ext as lkx
+>>> lkx.cache_obsid_path(local_path)
 ```
 For example
 
@@ -27,7 +27,7 @@ For example
 
 Also the `search_TESSlightcurve()` function can search local TESS light curves more efficiently with a sector constructed directory.
 
-Moreover, I also supply a function for selecting light curves between different products (authors). That can be very useful when multiple products like SPOC and HLSP data are both available at a sector. Use `lkx.select_lc_with_author_priority` to create a new `LightCurveCollection` with a given author priority.
+Moreover, I also supply a function for selecting light curves between different products (authors). That can be very useful when multiple products like SPOC and HLSP data are both available at a sector. To achieve this, use `lkx.select_lc_with_author_priority` to create a new `LightCurveCollection` with a given author priority.
 
 ## Installation
 ```
