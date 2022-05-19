@@ -3,3 +3,5 @@
 src/lightkurve_ext/__pycache__/
 src/lightkurve_ext.egg-info/
 src/lightkurve_ext/*.ipynb
+Untitled-1.ipynb
+*.pf
