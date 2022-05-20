@@ -1,9 +1,11 @@
 import re
+import os
 import pickle
 from pathlib import Path
 import lightkurve as lk
 from memoization import cached
 from fnmatch import fnmatch
+from .selection import _revise_author
 
 AUTHOR_LIST = [
     "Kepler",
@@ -20,12 +22,16 @@ AUTHOR_LIST = [
 
 
 class LightCurveDirectory():
+    @cached
     def __init__(self, directories, use_cache=True):
         self.directories = directories
         if use_cache:
-            cache_path = Path.home() / '.lightkurve_ext-cache' / "obsid_path_dict.pkl"
-            if cache_path.is_file():
-                with open(cache_path, "rb") as f:
+            cache_path = Path.home() / '.lightkurve_ext-cache'
+            dumped_file_paths = [dumped_file_path for dumped_file_path in cache_path.iterdir()
+                                    if dumped_file_path.name.startswith('obsid_path_dict_')]
+            if len(dumped_file_paths) > 0:
+                date_time_sorted_paths = sorted(dumped_file_paths, key=os.path.getmtime)
+                with open(date_time_sorted_paths[-1], "rb") as f:
                     self.obsid_path_dict = pickle.load(f)
             else:
                 import warnings
@@ -146,7 +152,7 @@ class LightCurveDirectory():
                 raise TypeError("sector must be an int or a list of ints")
 
             if isinstance(author, str):
-                if author not in AUTHOR_LIST:
+                if author not in AUTHOR_LIST and author != "*" and author != "all":
                     raise ValueError(f"author must be one of {AUTHOR_LIST}")
                 elif author == "*" or author == "all":
                     author = AUTHOR_LIST
@@ -220,7 +226,7 @@ class LightCurveDirectory():
         if len(files) == 0:
             return None
 
-        lc_collection = [lk.read(file) for file in set(files)]
+        lc_collection = [_revise_author(lk.read(file)) for file in set(files)]
         # Return lightcurves
         return lk.LightCurveCollection(lc_collection)
 
@@ -403,7 +409,7 @@ class LightCurveDirectory():
         if len(files) == 0:
             return None
 
-        lc_collection = [lk.read(file) for file in set(files)]
+        lc_collection = [_revise_author(lk.read(file)) for file in set(files)]
         # Return lightcurves
         return lk.LightCurveCollection(lc_collection)
 
@@ -414,6 +420,6 @@ if __name__ == '__main__':
         #   sector="*", exptime=120, author='SPOC', has_sector_tree=True))
     # print(search_local_TESSlightcurve(25285075,
     #       '/home/ckm/TESS_download/', exptime=120, author=['SPOC', 'TESS-SPOC']))
-    lc_dir = LightCurveDirectory(['/home/ckm/', '/home/ckm/.lightkurve-cache/'])
+    lc_dir = LightCurveDirectory(['/home/ckm/TESS_download', '/home/ckm/.lightkurve-cache/'])
     print(lc_dir.search_lightcurve(25285075, exptime=120, author='SPOC', mission='TESS'))
     print(lc_dir.search_TESSlightcurve(25285075, exptime=120, author='SPOC'))
