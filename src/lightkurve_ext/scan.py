@@ -70,23 +70,22 @@ def cache_obsid_path(dir_path: str or Path or list, dump_results: bool = True, s
             obsid_path_dict = get_obsid_path_dict_from_single_path(
                 path, obsid_path_dict)
 
-    if dump_results:
+    updates = _generate_update_report(obsid_path_dict, dump_updates=save_update_report)
+
+    if dump_results and updates != {}:
         _create_obsid_path_file(obsid_path_dict)
-        if save_update_report:
-            _generate_update_report()
-        else:
-            pass
 
-    return obsid_path_dict
+    return obsid_path_dict, updates
 
 
-def _generate_update_report():
+def _generate_update_report(new_dict: dict = None, dump_updates: bool = True) -> None:
     import os
     save_path = Path.home() / '.lightkurve_ext-cache'
 
     dumped_file_paths = [dumped_file_path for dumped_file_path in save_path.iterdir()
             if dumped_file_path.name.startswith('obsid_path_dict_')]
-    if len(dumped_file_paths) < 2:
+    if len(dumped_file_paths) < 1:
+        print('Can not find any previous dumped file.')
         return None
 
     def __compare_two_dicts(new_dict, old_dict):
@@ -107,22 +106,30 @@ def _generate_update_report():
         dumped_file_paths, key=os.path.getmtime)
     file_name_sorted_paths = sorted(dumped_file_paths, key=lambda x: time.strptime(x.stem.split('_')[-1], '%y%m%d%H%M%S'))
 
-    if date_time_sorted_paths[-1] != file_name_sorted_paths[-1] or date_time_sorted_paths[-2] != file_name_sorted_paths[-2]:
+    if date_time_sorted_paths[-1] != file_name_sorted_paths[-1]:
         import warnings
         warnings.warn(
             "The modification time of the cached files are not in the same order of the file names records. Please check it in detail.")
+    # with open(date_time_sorted_paths[-1], 'rb') as f:
+    #     obsid_path_dict_current = pickle.load(f)
     with open(date_time_sorted_paths[-1], 'rb') as f:
-        obsid_path_dict_current = pickle.load(f)
-    with open(date_time_sorted_paths[-2], 'rb') as f:
         obsid_path_dict_previous = pickle.load(f)
-    if obsid_path_dict_current == obsid_path_dict_previous:
+    if new_dict == obsid_path_dict_previous:
         print("No updates since last time.")
-        return None
+        return {}
     else:
         update_dict = __compare_two_dicts(
-            obsid_path_dict_current, obsid_path_dict_previous)
-        with open(save_path / f"updates_{file_name_sorted_paths[-2].stem.split('_')[-1]}_{file_name_sorted_paths[-1].stem.split('_')[-1]}.pkl", 'wb') as f:
-            pickle.dump(update_dict, f)
+            new_dict, obsid_path_dict_previous)
+
+        if update_dict == {}:
+            print("No updates since last time.")
+            return update_dict
+        
+        if dump_updates:
+            with open(save_path / f"updates_to_{file_name_sorted_paths[-1].stem.split('_')[-1]}.pkl", 'wb') as f:
+                pickle.dump(update_dict, f)
+        else:
+            return update_dict
 
 
 def _create_obsid_path_file(obsid_path_dict: dict) -> None:
@@ -148,9 +155,9 @@ def _create_obsid_path_file(obsid_path_dict: dict) -> None:
 
 
 if __name__ == '__main__':
-    dir_path = ['/home/ckm/.lightkurve-cache/mastDownload/TESS',
-                '/home/ckm/TESS_download/']
-    obsid_path_dict = cache_obsid_path(dir_path)
+    dir_path = ['/home/ckm/.lightkurve-cache/mastDownload/',]
+                # '/home/ckm/TESS_download/']
+    obsid_path_dict = cache_obsid_path(dir_path, dump_results=True, save_update_report=True)
     # for key, value in obsid_path_dict.items():
     #     print(key, value)
     #     break

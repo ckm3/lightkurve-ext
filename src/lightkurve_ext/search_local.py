@@ -164,6 +164,7 @@ class LightCurveDirectory():
             for s in sector:
                 for et in set(_pack_exptime(exptime)):
                     for a in author:
+                        # currently, I only implement the products of TESS mission
                         if a == 'SPOC' and (et == 120 or et == "*"):
                             pattern = f"tess*-s{s:{'04d' if s != '*' else ''}}-{target:016d}-[0-9]*-[xsab]_lc.fits*"
                             yield pattern
