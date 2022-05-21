@@ -1,7 +1,7 @@
 # Use this script to create a lc with given author priority
 
 import numpy as np
-import lightkurve as lk
+from .lc_collection import LightCurveCollection
 
 
 def select_lc_with_author_priority(lc_collection, author_priority_list=['SPOC', 'TESS-SPOC', 'QLP', 'TASOC']):
@@ -12,7 +12,7 @@ def select_lc_with_author_priority(lc_collection, author_priority_list=['SPOC', 
         raise ValueError("The lc_collection is empty")
     u, c = np.unique(lc_collection.sector, return_counts=True)
 
-    lcc_without_duplicates = []
+    lcc_without_duplicates = LightCurveCollection([])
     for i, sec in enumerate(u):
         if c[i] > 1:
             dup_lcc = lc_collection[lc_collection.sector == sec]
@@ -31,7 +31,7 @@ def select_lc_with_author_priority(lc_collection, author_priority_list=['SPOC', 
             lcc_without_duplicates.append(
                 lc_collection[lc_collection.sector == sec][0])
 
-    return lk.LightCurveCollection(lcc_without_duplicates)
+    return lcc_without_duplicates
 
 
 def _revise_author(lc):
