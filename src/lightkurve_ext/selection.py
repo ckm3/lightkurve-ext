@@ -8,6 +8,8 @@ def select_lc_with_author_priority(lc_collection, author_priority_list=['SPOC', 
     """
     Given a list of authors, return a lc according to the given author priority
     """
+    if len(lc_collection) == 0:
+        raise ValueError("The lc_collection is empty")
     u, c = np.unique(lc_collection.sector, return_counts=True)
 
     lcc_without_duplicates = []

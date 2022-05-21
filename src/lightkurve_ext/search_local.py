@@ -23,9 +23,9 @@ AUTHOR_LIST = [
 
 class LightCurveDirectory():
     @cached
-    def __init__(self, directories, use_cache=True):
+    def __init__(self, directories, use_cache=True, cache_dict=None):
         self.directories = directories
-        if use_cache:
+        if use_cache and not cache_dict:
             cache_path = Path.home() / '.lightkurve_ext-cache'
             dumped_file_paths = [dumped_file_path for dumped_file_path in cache_path.iterdir()
                                     if dumped_file_path.name.startswith('obsid_path_dict_')]
@@ -38,7 +38,7 @@ class LightCurveDirectory():
                 warnings.warn('Cache file not found. Searching for local lightcurves without cache.')
                 self.obsid_path_dict = {}
         else:
-            self.obsid_path_dict = {}
+            self.obsid_path_dict = cache_dict
 
     @cached
     def search_lightcurve(
