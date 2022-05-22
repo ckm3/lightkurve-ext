@@ -2,10 +2,10 @@
 
 This is an extension for the [Lightkurve](https://github.com/lightkurve/lightkurve) package.
 
-Lightkurve (lk) is a Python package is designed for the analysis of Kepler/K2/TESS light curves.
+Lightkurve (lk) is a Python package designed for the analysis of Kepler/K2/TESS light curves.
 
-Thanks to lk, I can easily access the data of the light curves, and perform some basic analysis.
-Although it's excellent, I still have some own requirements on my daily work. Therefore, I created this extensive package.
+Thanks to lk, one can easily access the data of the light curves, and perform some basic analysis.
+Although it's excellent design greatly enhances productivity, I still have some own requirements on my daily work. Therefore, I created this extensive package.
 Some features are listed below:
 
 - lk provides a conventient interface to search for light cuves from MAST, but usually I already have downloaded some data. Our `lkx.LightCurveDirectory` class can handle directories contain light curves. `search_lightcurve()` method can search for the light curve files in the above directory and return them as a `lk.LightCurveCollection` object.
@@ -28,6 +28,8 @@ For example
 Also the `search_TESSlightcurve()` function can search local TESS light curves more efficiently with a sector constructed directory.
 
 Moreover, I also supply a function for selecting light curves between different products (authors). That can be very useful when multiple products like SPOC and HLSP data are both available at a sector. To achieve this, use `lkx.select_lc_with_author_priority` to create a new `LightCurveCollection` with a given author priority.
+
+- Overwrite the `LightCurve` and `LightCurveCollection` classes to add some useful methods. For instance, our  `stitch` method of `LightCurveCollection` can handle negative flux value and normalize it as the relative variability. The `split_by_gap` method of `LightCurve` object will split a light curve into different parts with a given gap threshold. I also added some new method for the `fill_gaps` method to make it support filling with NaN and zero.
 
 ## Installation
 ```
