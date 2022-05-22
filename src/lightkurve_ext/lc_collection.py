@@ -23,9 +23,11 @@ class LightCurveCollection(lk.LightCurveCollection):
         lc.meta["NORMALIZED"] = True
         return lc
 
-    def stitch(self):
+    def stitch(self, corrector_func=None):
+        if corrector_func is None:
+            corrector_func = lambda x: x.normalize()
         lc = lk.LightCurveCollection.stitch(
-            self, corrector_func=lambda x: self._norm_var(x))
+            self, corrector_func=corrector_func)
         lc = LightCurve(lc)
         lc.sort()
         return lc
@@ -55,18 +57,29 @@ class LightCurve(lk.LightCurve):
             np.where(time_diff > gap_threshold)[0].tolist() + [-1]
 
         for i in range(len(gap_indices)):
-            if i == 0:
-                continue
-            if gap_indices[i] - gap_indices[i-1] > 1 or gap_indices[i] == -1:
-                yield lc[gap_indices[i-1]:gap_indices[i]]
+            if gap_indices[i] != -1 and abs(gap_indices[i+1] - gap_indices[i]) > 1:
+                yield lc[gap_indices[i]+1 if gap_indices[i] !=0 else 0 : None if gap_indices[i+1] == -1 else gap_indices[i+1]+1]
 
 
 if __name__ == "__main__":
-    lc = LightCurve(time=np.concatenate(
-        [np.arange(0, 5, 0.1), np.arange(10, 15, 0.1)]), flux=np.arange(0, 10, 0.1), flux_err=0)
-    for temp_lc in LightCurveCollection(lc.split_by_gap()):
-        print(temp_lc.time.value.min(), temp_lc.time.value.max())
+    # lc = LightCurve(time=np.concatenate(
+    #     [np.arange(0, 5, 0.1), np.arange(10, 15, 0.1)]), flux=np.arange(0, 10, 0.1), flux_err=0)
+    # for temp_lc in LightCurveCollection(lc.split_by_gap()):
+    #     print(temp_lc.time.value.min(), temp_lc.time.value.max())
 
-    raw_lc = LightCurveCollection(lc.split_by_gap()).stitch()
-    for temp_lc in LightCurveCollection(raw_lc.split_by_gap()):
-        print(temp_lc.time.value.min(), temp_lc.time.value.max())
+    # raw_lc = LightCurveCollection(lc.split_by_gap()).stitch()
+    # for temp_lc in LightCurveCollection(raw_lc.split_by_gap()):
+    #     print(temp_lc.time.value.min(), temp_lc.time.value.max())
+
+    from .search_local import LightCurveDirectory
+    lc_dir = LightCurveDirectory('/home/ckm/.lightkurve-cache/mastDownload/TESS')
+    lcc = lc_dir.search_lightcurve(73228647, author='SPOC')
+    lc = LightCurve(lcc.stitch()).remove_nans()
+    lc_length = len(lc)
+
+    l = 0
+    for lc in lc.split_by_gap():
+        print(np.diff(lc.time.value).max())
+        l += len(lc)
+    
+    assert l == lc_length
