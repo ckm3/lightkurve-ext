@@ -197,7 +197,7 @@ class LightCurveDirectory():
         if isinstance(local_path, str):
             local_path = [Path(local_path)]
 
-        if len(self.obsid_path_dict) > 0:
+        if self.obsid_path_dict and len(self.obsid_path_dict) > 0:
             cached_local_path = self.obsid_path_dict[target]
             local_path = [p if Path(lp) in p.parents else Path()
                         for p in cached_local_path for lp in local_path]
