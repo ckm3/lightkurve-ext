@@ -26,7 +26,7 @@ class LightCurveCollection(lk.LightCurveCollection):
 
     def stitch(self, corrector_func=None):
         if corrector_func is None:
-            corrector_func = lambda x: x.normalize()
+            corrector_func = lambda x: self._norm_var(x)
         lc = lk.LightCurveCollection.stitch(
             self, corrector_func=corrector_func)
         lc = LightCurve(lc)
@@ -175,7 +175,7 @@ if __name__ == "__main__":
     from .search_local import LightCurveDirectory
     lc_dir = LightCurveDirectory('/home/ckm/.lightkurve-cache/mastDownload/TESS')
     lcc = lc_dir.search_lightcurve(73228647, author='SPOC')
-    lc = LightCurve(lcc.stitch()).remove_nans()
+    lc = lcc.stitch().remove_nans()
     lc_length = len(lc)
 
     l = 0
