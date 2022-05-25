@@ -6,6 +6,7 @@ import lightkurve as lk
 from memoization import cached
 from fnmatch import fnmatch
 from .selection import _revise_author
+from .lc_collection import LightCurveCollection
 
 AUTHOR_LIST = [
     "Kepler",
@@ -229,7 +230,7 @@ class LightCurveDirectory():
 
         lc_collection = [_revise_author(lk.read(file)) for file in set(files)]
         # Return lightcurves
-        return lk.LightCurveCollection(lc_collection)
+        return LightCurveCollection(lc_collection)
 
 
     @cached
@@ -412,7 +413,7 @@ class LightCurveDirectory():
 
         lc_collection = [_revise_author(lk.read(file)) for file in set(files)]
         # Return lightcurves
-        return lk.LightCurveCollection(lc_collection)
+        return LightCurveCollection(lc_collection)
 
 
 if __name__ == '__main__':
