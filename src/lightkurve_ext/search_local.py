@@ -1,12 +1,15 @@
 import re
 import os
 import pickle
-from pathlib import Path
+import hashlib
+import warnings
 import lightkurve as lk
-from memoization import cached
+from pathlib import Path
 from fnmatch import fnmatch
+from memoization import cached
 from .selection import _revise_author
 from .lc_collection import LightCurveCollection
+
 
 AUTHOR_LIST = [
     "Kepler",
@@ -24,22 +27,51 @@ AUTHOR_LIST = [
 
 class LightCurveDirectory():
     @cached
-    def __init__(self, directories, use_cache=True, cache_dict=None):
-        self.directories = directories
-        if use_cache and not cache_dict:
-            cache_path = Path.home() / '.lightkurve_ext-cache'
-            dumped_file_paths = [dumped_file_path for dumped_file_path in cache_path.iterdir()
-                                    if dumped_file_path.name.startswith('obsid_path_dict_')]
-            if len(dumped_file_paths) > 0:
-                date_time_sorted_paths = sorted(dumped_file_paths, key=os.path.getmtime)
-                with open(date_time_sorted_paths[-1], "rb") as f:
-                    self.obsid_path_dict = pickle.load(f)
-            else:
-                import warnings
-                warnings.warn('Cache file not found. Searching for local lightcurves without cache.')
-                self.obsid_path_dict = {}
+    def __init__(self, directories, use_cache=True, cache_dicts=None, scan_dir=False, dump_scan_results=False, save_updates=False):
+        if isinstance(directories, str) or isinstance(directories, Path):
+            self.directories = [Path(directories)]
+        elif isinstance(directories, list):
+            self.directories = set([Path(dir) for dir in directories])
         else:
-            self.obsid_path_dict = cache_dict
+            raise TypeError(
+                "directories must be a string or pathlib.Path object or a list of strings or pathlib.Path objects")
+
+        self.obsid_path_dicts = []
+        if use_cache and not cache_dicts:
+            cache_path = Path.home() / '.lightkurve_ext-cache'
+            # cache_directories = [cache_path / hashlib.md5((Path(directory).as_posix()).encode(
+            #     'utf-8')).hexdigest() for directory in directories]
+            for directory in self.directories:
+                cache_dir = cache_path / \
+                    hashlib.md5((Path(directory).as_posix()
+                                 ).encode('utf-8')).hexdigest()
+                if not cache_dir.exists():
+                    warnings.warn(
+                        f"Cache file for {directory} does not exist. Will serach files at that place without cache. You can scan the directories with scan_dir=True to generate a cache.")
+                    self.obsid_path_dicts.append({})
+                    continue
+                dumped_file_paths = [dumped_file_path for dumped_file_path in cache_dir.iterdir()
+                                     if dumped_file_path.name.endswith('.pkl')]
+                if len(dumped_file_paths) > 0:
+                    date_time_sorted_paths = sorted(
+                        dumped_file_paths, key=os.path.getmtime)
+                    with open(date_time_sorted_paths[-1], "rb") as f:
+                        self.obsid_path_dicts.append(pickle.load(f))
+                else:
+                    warnings.warn(
+                        f'Cache file for {directory} does not exist. Will serach files at that place without cache. You can scan the directories with scan_dir=True to generate a cache.')
+                    self.obsid_path_dicts.append({})
+                    continue
+        elif cache_dicts:
+            if len(cache_dicts) == len(self.directories):
+                self.obsid_path_dicts = cache_dicts
+            else:
+                raise ValueError(
+                    'The length of cache_dicts is not equal to the length of directories.')
+        elif scan_dir:
+            from .scan import cache_obsid_path
+            self.obsid_path_dicts, self.update_dicts = cache_obsid_path(
+                self.directories, dump_results=dump_scan_results, save_update_report=save_updates)
 
     @cached
     def search_lightcurve(
@@ -191,20 +223,28 @@ class LightCurveDirectory():
                 if mission in ["Kepler", "K2", "TESS"]:
                     return mission
                 else:
-                    raise ValueError("Mission must be one of Kepler, K2, or TESS.")
+                    raise ValueError(
+                        "Mission must be one of Kepler, K2, or TESS.")
 
         # Search for local lightcurves
-        local_path = self.directories
-        if isinstance(local_path, str):
-            local_path = [Path(local_path)]
-
-        if self.obsid_path_dict and len(self.obsid_path_dict) > 0:
-            cached_local_path = self.obsid_path_dict[target]
-            local_path = [p if Path(lp) in p.parents else Path()
-                        for p in cached_local_path for lp in local_path]
+        if len(self.obsid_path_dicts) == len(self.directories):
+            local_path = []
+            for obsid_path_dict, directory in zip(self.obsid_path_dicts, self.directories):
+                if obsid_path_dict:
+                    try:
+                        cached_local_path = obsid_path_dict[target]
+                    except KeyError:
+                        # warnings.warn(
+                        #     f"Target {target} not found in {directory}")
+                        continue
+                    local_path += cached_local_path
+                else:
+                    local_path.append(directory)
+        else:
+            local_path = self.directories
 
         files = []
-        for path in local_path:
+        for path in set(local_path):
             path = Path(path)
             for pattern in kwargs_pattern_generator(
                 target=target,
@@ -228,10 +268,17 @@ class LightCurveDirectory():
         if len(files) == 0:
             return None
 
-        lc_collection = [_revise_author(lk.read(file)) for file in set(files)]
+        # Remove duplicated files
+        seen = set()
+        uniq_files = []
+        for f in files:
+            if f.name not in seen:
+                uniq_files.append(f)
+                seen.add(f.name)
+
+        lc_collection = [_revise_author(lk.read(file)) for file in uniq_files]
         # Return lightcurves
         return LightCurveCollection(lc_collection)
-
 
     @cached
     def search_TESSlightcurve(
@@ -385,9 +432,9 @@ class LightCurveDirectory():
                     "Local directory is not constructed by different sectors")
 
         if len(self.obsid_path_dict) > 0:
-                cached_local_path = self.obsid_path_dict[target]
-                local_path = [p if Path(lp) in p.parents else Path(lp)
-                        for p in cached_local_path for lp in local_path]
+            cached_local_path = self.obsid_path_dict[target]
+            local_path = [p if Path(lp) in p.parents else Path(lp)
+                          for p in cached_local_path for lp in local_path]
 
         files = []
         for path in local_path:
@@ -417,11 +464,9 @@ class LightCurveDirectory():
 
 
 if __name__ == '__main__':
-    # print(search_local_lightcurve(25285075, '/home/ckm/TESS_download/s1/', sector=[1, 3], exptime='short', mission='TESS', author='SPOC'))
-    # print(search_local_TESSlightcurve(25285075, '/home/ckm/TESS_download',
-        #   sector="*", exptime=120, author='SPOC', has_sector_tree=True))
-    # print(search_local_TESSlightcurve(25285075,
-    #       '/home/ckm/TESS_download/', exptime=120, author=['SPOC', 'TESS-SPOC']))
-    lc_dir = LightCurveDirectory(['/home/ckm/TESS_download', '/home/ckm/.lightkurve-cache/'])
-    print(lc_dir.search_lightcurve(25285075, exptime=120, author='SPOC', mission='TESS'))
-    print(lc_dir.search_TESSlightcurve(25285075, exptime=120, author='SPOC'))
+    from .search_local import LightCurveDirectory
+    lc_dir = LightCurveDirectory(
+        ['/home/ckm/.lightkurve-cache/mastDownload/HLSP', '/home/ckm/.lightkurve-cache/mastDownload/TESS'], use_cache=False, scan_dir=True, dump_scan_results=True)
+    print(lc_dir.search_lightcurve(
+        441801208, exptime=120, author='SPOC', mission='TESS'))
+    # print(lc_dir.search_TESSlightcurve(25285075, exptime=120, author='SPOC'))

@@ -5,13 +5,15 @@ from os import pathsep
 import re
 import time
 import pickle
+import hashlib
 from tqdm import tqdm
 from pathlib import Path
 from memoization import cached
 
 
+
 @cached
-def cache_obsid_path(dir_path: str or Path or list, dump_results: bool = True, save_update_report: bool = True) -> dict:
+def cache_obsid_path(dir_path: str or Path or list, dump_results: bool = True, save_update_report: bool = False) -> dict:
     """Given a directory, return a dict of ObsID and a list of paths of the files
 
     Args:
@@ -21,8 +23,9 @@ def cache_obsid_path(dir_path: str or Path or list, dump_results: bool = True, s
     Returns:
         dict: obsid and paths of the files
     """
-    def get_obsid_path_dict_from_single_path(path: Path, output_dict: dict) -> dict:
+    def get_obsid_path_dict_from_single_path(path: Path) -> dict:
         tqdm.write("Scanning path: {}".format(path))
+        output_dict = {}
         for file_path in tqdm(path.rglob('*.fits')):
             file_name = file_path.name
             SPOC_match = re.match(
@@ -58,32 +61,39 @@ def cache_obsid_path(dir_path: str or Path or list, dump_results: bool = True, s
                 output_dict[obsid] = [file_path]
         return output_dict
 
-    obsid_path_dict = {}
-
+    obsid_path_dicts = []
     if isinstance(dir_path, str) or isinstance(dir_path, Path):
         dir_path = Path(dir_path)
-        obsid_path_dict = get_obsid_path_dict_from_single_path(
-            dir_path, obsid_path_dict)
+        obsid_path_dicts = [get_obsid_path_dict_from_single_path(dir_path)]
+    elif isinstance(dir_path, set):
+        for path in tqdm(dir_path):
+            obsid_path_dicts.append(get_obsid_path_dict_from_single_path(path))
     elif isinstance(dir_path, list):
+        dir_path = set([Path(p) for p in dir_path])
         for path in dir_path:
-            path = Path(path)
-            obsid_path_dict = get_obsid_path_dict_from_single_path(
-                path, obsid_path_dict)
+            obsid_path_dicts.append(get_obsid_path_dict_from_single_path(path))
+    else:
+        raise TypeError("dir_path must be a str or Path object or a list of str or Path object")
+    
+    updates = []
+    for path, obsid_path_dict in zip(dir_path, obsid_path_dicts):
+        update_dict = _generate_update_report(path, obsid_path_dict, dump_updates=save_update_report)
+        if dump_results and update_dict != {}:
+            _create_obsid_path_file(path, obsid_path_dict)
+        updates.append(update_dict)
 
-    updates = _generate_update_report(obsid_path_dict, dump_updates=save_update_report)
-
-    if dump_results and updates != {}:
-        _create_obsid_path_file(obsid_path_dict)
-
-    return obsid_path_dict, updates
+    return obsid_path_dicts, updates
 
 
-def _generate_update_report(new_dict: dict = None, dump_updates: bool = True) -> None:
+def _generate_update_report(path: str or Path, new_dict: dict = None, dump_updates: bool = True) -> None:
     import os
-    save_path = Path.home() / '.lightkurve_ext-cache'
+    path_hash = hashlib.md5(Path(path).as_posix().encode('utf-8')).hexdigest()
+    save_path = Path.home() / '.lightkurve_ext-cache'/ path_hash
+    if not save_path.exists():
+        return None
 
     dumped_file_paths = [dumped_file_path for dumped_file_path in save_path.iterdir()
-            if dumped_file_path.name.startswith('obsid_path_dict_')]
+            if dumped_file_path.name.startswith('obsid_path_dict_') or not save_path.exists()]
     if len(dumped_file_paths) < 1:
         print('Can not find any previous dumped file.')
         return None
@@ -115,34 +125,38 @@ def _generate_update_report(new_dict: dict = None, dump_updates: bool = True) ->
     with open(date_time_sorted_paths[-1], 'rb') as f:
         obsid_path_dict_previous = pickle.load(f)
     if new_dict == obsid_path_dict_previous:
-        print("No updates since last time.")
+        print(f"Cache already exist, no updates for {path} since last time.")
         return {}
     else:
         update_dict = __compare_two_dicts(
             new_dict, obsid_path_dict_previous)
 
         if update_dict == {}:
-            print("No updates since last time.")
+            print(f"Cache already exist, no updates for {path} since last time.")
             return update_dict
         
         if dump_updates:
             with open(save_path / f"updates_to_{file_name_sorted_paths[-1].stem.split('_')[-1]}.pkl", 'wb') as f:
                 pickle.dump(update_dict, f)
+                print("Successfully dump updates to {}".format(
+                    save_path / f"updates_to_{file_name_sorted_paths[-1].stem.split('_')[-1]}.pkl"))
         else:
             return update_dict
 
 
-def _create_obsid_path_file(obsid_path_dict: dict) -> None:
+def _create_obsid_path_file(path: str or Path, obsid_path_dict: dict) -> None:
     """Create a file to save the obsid and paths of the files
 
     Args:
         obsid_path_dict (dict): obsid and paths of the files
     """
-    def dump_dict(path, dict):
-        with open(path, 'wb') as f:
+    def dump_dict(save_path, dict):
+        with open(save_path, 'wb') as f:
             pickle.dump(dict, f)
+            print(f"Successfully dump cache file to {save_path} for {path}")
 
-    save_path = Path.home() / '.lightkurve_ext-cache'
+    path_hash = hashlib.md5(Path(path).as_posix().encode('utf-8')).hexdigest()
+    save_path = Path.home() / '.lightkurve_ext-cache' / path_hash
     local_time = time.strftime("%y%m%d%H%M%S", time.localtime())
 
     if not save_path.exists():
@@ -155,7 +169,7 @@ def _create_obsid_path_file(obsid_path_dict: dict) -> None:
 
 
 if __name__ == '__main__':
-    dir_path = ['/home/ckm/.lightkurve-cache/mastDownload/',]
+    dir_path = ['/home/ckm/.lightkurve-cache/mastDownload/TESS','/home/ckm/.lightkurve-cache/mastDownload/TESS']
                 # '/home/ckm/TESS_download/']
     obsid_path_dict = cache_obsid_path(dir_path, dump_results=True, save_update_report=True)
     # for key, value in obsid_path_dict.items():
