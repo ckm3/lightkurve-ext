@@ -2,14 +2,17 @@
 
 import lightkurve as lk
 import numpy as np
-from astropy.units.quantity import Quantity
 from astropy import units as u
 from astropy.time import Time
+from astropy.units.quantity import Quantity
+from .helper_func import _revise_author
 
 
 class LightCurveCollection(lk.LightCurveCollection):
     def __init__(self, lightcurves):
-        super().__init__(lightcurves)
+        lightcurves = [LightCurve(lc) for lc in lightcurves]
+        sorted_lightcurves = sorted(lightcurves, key=lambda x: x.meta.get('TSTART'))
+        super().__init__(sorted_lightcurves)
 
     def _norm_var(self, lc):
         lc = lc.copy()
@@ -26,12 +29,41 @@ class LightCurveCollection(lk.LightCurveCollection):
 
     def stitch(self, corrector_func=None):
         if corrector_func is None:
-            corrector_func = lambda x: self._norm_var(x)
+            def corrector_func(x): return self._norm_var(x)
         lc = lk.LightCurveCollection.stitch(
             self, corrector_func=corrector_func)
         lc = LightCurve(lc)
         lc.sort()
         return lc
+
+    def select_lc_with_author_priority(self, author_priority_list=['SPOC', 'TESS-SPOC', 'QLP', 'TASOC']):
+        """
+        Given a list of authors, return a lc according to the given author priority
+        """
+        if len(self) == 0:
+            raise ValueError("The lc_collection is empty")
+        u, c = np.unique(self.sector, return_counts=True)
+
+        lcc_without_duplicates = LightCurveCollection([])
+        for i, sec in enumerate(u):
+            if c[i] > 1:
+                dup_lcc = self[self.sector == sec]
+
+                have_found = 0
+                for pr in author_priority_list:
+                    if have_found == 1:
+                        break
+                    for lc in dup_lcc:
+                        lc = _revise_author(lc.copy())
+                        if lc.meta.get('AUTHOR') == pr:
+                            lcc_without_duplicates.append(lc)
+                            have_found = 1
+                            break
+            else:
+                lcc_without_duplicates.append(
+                    self[self.sector == sec][0])
+
+        return lcc_without_duplicates
 
 
 class LightCurve(lk.LightCurve):
@@ -59,7 +91,7 @@ class LightCurve(lk.LightCurve):
 
         for i in range(len(gap_indices)):
             if gap_indices[i] != -1 and abs(gap_indices[i+1] - gap_indices[i]) > 1:
-                yield lc[gap_indices[i]+1 if gap_indices[i] !=0 else 0 : None if gap_indices[i+1] == -1 else gap_indices[i+1]+1]
+                yield lc[gap_indices[i]+1 if gap_indices[i] != 0 else 0: None if gap_indices[i+1] == -1 else gap_indices[i+1]+1]
 
     def fill_gaps(self, method: str = "gaussian_noise"):
         """Fill in gaps in time. 
@@ -88,8 +120,10 @@ class LightCurve(lk.LightCurve):
         # Find missing time points
         # Most precise method, taking into account time variation due to orbit
         if hasattr(lc, "cadenceno"):
-            dt = lc.time.value - np.median(np.diff(lc.time.value)) * lc.cadenceno.value
-            ncad = np.arange(lc.cadenceno.value[0], lc.cadenceno.value[-1] + 1, 1)
+            dt = lc.time.value - \
+                np.median(np.diff(lc.time.value)) * lc.cadenceno.value
+            ncad = np.arange(
+                lc.cadenceno.value[0], lc.cadenceno.value[-1] + 1, 1)
             in_original = np.in1d(ncad, lc.cadenceno.value)
             ncad = ncad[~in_original]
             ndt = np.interp(ncad, lc.cadenceno.value, dt)
@@ -113,7 +147,8 @@ class LightCurve(lk.LightCurve):
             in_original = np.in1d(ntime, lc.time.value)
 
         # Fill in time points
-        newdata["time"] = Time(ntime, format=lc.time.format, scale=lc.time.scale)
+        newdata["time"] = Time(
+            ntime, format=lc.time.format, scale=lc.time.scale)
         f = np.zeros(len(ntime))
         f[in_original] = np.copy(lc.flux)
         fe = np.zeros(len(ntime))
@@ -122,9 +157,11 @@ class LightCurve(lk.LightCurve):
         # Temporary workaround for issue #1172.  TODO: remove the `if`` statement
         # below once we adopt AstroPy >=5.0.3 as a minimum dependency.
         if hasattr(lc.flux_err, 'mask'):
-            fe[~in_original] = np.interp(ntime[~in_original], lc.time.value, lc.flux_err.unmasked)
+            fe[~in_original] = np.interp(
+                ntime[~in_original], lc.time.value, lc.flux_err.unmasked)
         else:
-            fe[~in_original] = np.interp(ntime[~in_original], lc.time.value, lc.flux_err)
+            fe[~in_original] = np.interp(
+                ntime[~in_original], lc.time.value, lc.flux_err)
 
         if method == "gaussian_noise":
             try:
@@ -162,6 +199,7 @@ class LightCurve(lk.LightCurve):
         """
         return LightCurve(data=newdata, meta=self.meta)
 
+
 if __name__ == "__main__":
     # lc = LightCurve(time=np.concatenate(
     #     [np.arange(0, 5, 0.1), np.arange(10, 15, 0.1)]), flux=np.arange(0, 10, 0.1), flux_err=0)
@@ -173,8 +211,9 @@ if __name__ == "__main__":
     #     print(temp_lc.time.value.min(), temp_lc.time.value.max())
 
     from .search_local import LightCurveDirectory
-    lc_dir = LightCurveDirectory('/home/ckm/.lightkurve-cache/mastDownload/TESS')
-    lcc = lc_dir.search_lightcurve(73228647, author='SPOC')
+    lc_dir = LightCurveDirectory(
+        '/home/ckm/.lightkurve-cache/mastDownload/TESS')
+    lcc = lc_dir.search_lightcurve(73228647, author='SPOC').load().select_lc_with_author_priority()
     lc = lcc.stitch().remove_nans()
     lc_length = len(lc)
 
@@ -182,8 +221,8 @@ if __name__ == "__main__":
     for lc in lc.split_by_gap():
         print(np.diff(lc.time.value).max())
         l += len(lc)
-        print(len(lc.fill_gaps(method='gaussian_noise')))
+        # print(len(lc.fill_gaps(method='gaussian_noise')))
         print(len(lc.fill_gaps(method='NaN')))
         print(len(lc.fill_gaps(method='zero')))
-    
+
     assert l == lc_length
