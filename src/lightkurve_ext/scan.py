@@ -11,7 +11,6 @@ from pathlib import Path
 from memoization import cached
 
 
-
 @cached
 def cache_obsid_path(dir_path: str or Path or list, dump_results: bool = True, save_update_report: bool = False) -> dict:
     """Given a directory, return a dict of ObsID and a list of paths of the files
@@ -73,11 +72,13 @@ def cache_obsid_path(dir_path: str or Path or list, dump_results: bool = True, s
         for path in dir_path:
             obsid_path_dicts.append(get_obsid_path_dict_from_single_path(path))
     else:
-        raise TypeError("dir_path must be a str or Path object or a list of str or Path object")
-    
+        raise TypeError(
+            "dir_path must be a str or Path object or a list of str or Path object")
+
     updates = []
     for path, obsid_path_dict in zip(dir_path, obsid_path_dicts):
-        update_dict = _generate_update_report(path, obsid_path_dict, dump_updates=save_update_report)
+        update_dict = _generate_update_report(
+            path, obsid_path_dict, dump_updates=save_update_report)
         if dump_results and update_dict != {}:
             _create_obsid_path_file(path, obsid_path_dict)
         updates.append(update_dict)
@@ -88,12 +89,12 @@ def cache_obsid_path(dir_path: str or Path or list, dump_results: bool = True, s
 def _generate_update_report(path: str or Path, new_dict: dict = None, dump_updates: bool = True) -> None:
     import os
     path_hash = hashlib.md5(Path(path).as_posix().encode('utf-8')).hexdigest()
-    save_path = Path.home() / '.lightkurve_ext-cache'/ path_hash
+    save_path = Path.home() / '.lightkurve_ext-cache' / path_hash
     if not save_path.exists():
         return None
 
     dumped_file_paths = [dumped_file_path for dumped_file_path in save_path.iterdir()
-            if dumped_file_path.name.startswith('obsid_path_dict_') or not save_path.exists()]
+                         if dumped_file_path.name.startswith('obsid_path_dict_') or not save_path.exists()]
     if len(dumped_file_paths) < 1:
         print('Can not find any previous dumped file.')
         return None
@@ -114,14 +115,13 @@ def _generate_update_report(path: str or Path, new_dict: dict = None, dump_updat
 
     date_time_sorted_paths = sorted(
         dumped_file_paths, key=os.path.getmtime)
-    file_name_sorted_paths = sorted(dumped_file_paths, key=lambda x: time.strptime(x.stem.split('_')[-1], '%y%m%d%H%M%S'))
+    file_name_sorted_paths = sorted(dumped_file_paths, key=lambda x: time.strptime(
+        x.stem.split('_')[-1], '%y%m%d%H%M%S'))
 
     if date_time_sorted_paths[-1] != file_name_sorted_paths[-1]:
         import warnings
         warnings.warn(
             "The modification time of the cached files are not in the same order of the file names records. Please check it in detail.")
-    # with open(date_time_sorted_paths[-1], 'rb') as f:
-    #     obsid_path_dict_current = pickle.load(f)
     with open(date_time_sorted_paths[-1], 'rb') as f:
         obsid_path_dict_previous = pickle.load(f)
     if new_dict == obsid_path_dict_previous:
@@ -132,9 +132,10 @@ def _generate_update_report(path: str or Path, new_dict: dict = None, dump_updat
             new_dict, obsid_path_dict_previous)
 
         if update_dict == {}:
-            print(f"Cache already exist, no updates for {path} since last time.")
+            print(
+                f"Cache already exist, no updates for {path} since last time.")
             return update_dict
-        
+
         if dump_updates:
             with open(save_path / f"updates_to_{file_name_sorted_paths[-1].stem.split('_')[-1]}.pkl", 'wb') as f:
                 pickle.dump(update_dict, f)
@@ -169,9 +170,8 @@ def _create_obsid_path_file(path: str or Path, obsid_path_dict: dict) -> None:
 
 
 if __name__ == '__main__':
-    dir_path = ['/home/ckm/.lightkurve-cache/mastDownload/TESS','/home/ckm/.lightkurve-cache/mastDownload/TESS']
-                # '/home/ckm/TESS_download/']
-    obsid_path_dict = cache_obsid_path(dir_path, dump_results=True, save_update_report=True)
-    # for key, value in obsid_path_dict.items():
-    #     print(key, value)
-    #     break
+    dir_path = ['/home/ckm/.lightkurve-cache/mastDownload/TESS',
+                '/home/ckm/.lightkurve-cache/mastDownload/TESS']
+    obsid_path_dict = cache_obsid_path(
+        dir_path, dump_results=True, save_update_report=True)
+
