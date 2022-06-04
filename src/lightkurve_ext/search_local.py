@@ -7,7 +7,7 @@ import lightkurve as lk
 from pathlib import Path
 from fnmatch import fnmatch
 from memoization import cached
-from .selection import _revise_author
+from .helper_func import _revise_author
 from .lc_collection import LightCurveCollection
 
 
@@ -28,6 +28,36 @@ AUTHOR_LIST = [
 class LightCurveDirectory():
     @cached
     def __init__(self, directories, use_cache=True, cache_dicts=None, scan_dir=False, dump_scan_results=False, save_updates=False):
+        """Initialize a LightCurveDirectory object. 
+        If there are existing cache files, load them with use_cache=True, 
+        or send a list of cache_dicts to load them.
+        If not, cache files can be created by toggling scan_dir=True. 
+        And one can also dump the scan results to a file.
+        Every time when the directories are changed, the cache files will be updated, 
+        and the updates can be saved to a file with save_updates=True.
+
+        Parameters
+        ----------
+        directories : _type_
+            input directories
+        use_cache : bool, optional
+            whether to use local cache files, by default True
+        cache_dicts : _type_, optional
+            input an existing cached dicts, by default None
+        scan_dir : bool, optional
+            whether to scan the input directories, by default False
+        dump_scan_results : bool, optional
+            whether to save the scan resutls to local cache files, by default False
+        save_updates : bool, optional
+            whether to save the updates between the updated results to the previous cached files, by default False
+
+        Raises
+        ------
+        TypeError
+            _description_
+        ValueError
+            _description_
+        """
         if isinstance(directories, str) or isinstance(directories, Path):
             self.directories = [Path(directories)]
         elif isinstance(directories, list):
@@ -39,8 +69,6 @@ class LightCurveDirectory():
         self.obsid_path_dicts = []
         if use_cache and not cache_dicts:
             cache_path = Path.home() / '.lightkurve_ext-cache'
-            # cache_directories = [cache_path / hashlib.md5((Path(directory).as_posix()).encode(
-            #     'utf-8')).hexdigest() for directory in directories]
             for directory in self.directories:
                 cache_dir = cache_path / \
                     hashlib.md5((Path(directory).as_posix()
@@ -276,9 +304,9 @@ class LightCurveDirectory():
                 uniq_files.append(f)
                 seen.add(f.name)
 
-        lc_collection = [_revise_author(lk.read(file)) for file in uniq_files]
+        # lc_collection = [_revise_author(lk.read(file)) for file in uniq_files]
         # Return lightcurves
-        return LightCurveCollection(lc_collection)
+        return SearchResults(uniq_files)
 
     @cached
     def search_TESSlightcurve(
@@ -404,6 +432,8 @@ class LightCurveDirectory():
                             pattern = f"hlsp_pathos_tess_lightcurve_tic-{target:010d}-s{s:{'04d' if s != '*' else ''}}_tess_v1_llc.fits*"
                             yield pattern, s
 
+        warnings.warn("This function is deprecated. Better to use search_lightcurve instead. Unless you have to search it without cache file.", DeprecationWarning)
+
         # Search for local lightcurves
         local_path = self.directories
         if isinstance(local_path, str):
@@ -458,15 +488,66 @@ class LightCurveDirectory():
         if len(files) == 0:
             return None
 
-        lc_collection = [_revise_author(lk.read(file)) for file in set(files)]
+        # lc_collection = [_revise_author(lk.read(file)) for file in set(files)]
         # Return lightcurves
-        return LightCurveCollection(lc_collection)
+        return SearchResult(files)
+
+
+class SearchResults(object):
+    def __init__(self, results: list or set):
+        self.results = sorted(results)
+    def __iter__(self):
+        return iter(self.results)
+    def __getitem__(self, key):
+        return self.results[key]
+    def __len__(self):
+        return len(self.results)
+    def __repr__(self):
+        out = "SearchResults containing {} data products.".format(len(self.results))
+        out += "\n"
+        for i, r in enumerate(self.results):
+            out += f"{i}: {r}\n"
+        return out
+    def __str__(self):
+        return f"SearchResults({[s.as_posix() for s in self.results]})"
+    def load(self, **kwargs):
+        # read files in the list and return a LightCurveCollection
+        """Reads any valid Kepler or TESS data file and returns an instance of
+            `~lightkurve.lightcurve.LightCurve`. Adopted from `~lightkurve.lightcurve.LightCurve.read`.
+
+        Prarmeters
+        ----------
+        quality_bitmask : str or int, optional
+            Bitmask (integer) which identifies the quality flag bitmask that should
+            be used to mask out bad cadences. If a string is passed, it has the
+            following meaning:
+                * "none": no cadences will be ignored
+                * "default": cadences with severe quality issues will be ignored
+                * "hard": more conservative choice of flags to ignore
+                This is known to remove good data.
+                * "hardest": removes all data that has been flagged
+                This mask is not recommended.
+            See the :class:`KeplerQualityFlags <lightkurve.utils.KeplerQualityFlags>` or :class:`TessQualityFlags <lightkurve.utils.TessQualityFlags>` class for details on the bitmasks.
+        flux_column : str, optional
+            (Applicable to LightCurve products only) The column in the FITS file to be read as `flux`. Defaults to 'pdcsap_flux'.
+            Typically 'pdcsap_flux' or 'sap_flux'.
+
+        Returns
+        -------
+        _type_
+            _description_
+        """        
+        return LightCurveCollection([_revise_author(lk.read(file, **kwargs)) for file in self.results])
+    
+
 
 
 if __name__ == '__main__':
     from .search_local import LightCurveDirectory
     lc_dir = LightCurveDirectory(
-        ['/home/ckm/.lightkurve-cache/mastDownload/HLSP', '/home/ckm/.lightkurve-cache/mastDownload/TESS'], use_cache=False, scan_dir=True, dump_scan_results=True)
+        ['/home/ckm/.lightkurve-cache/mastDownload/HLSP', '/home/ckm/.lightkurve-cache/mastDownload/TESS'], use_cache=True, scan_dir=True, dump_scan_results=True)
+    print(repr(lc_dir.search_lightcurve(
+        441801208, exptime=120, author='SPOC', mission='TESS')))
     print(lc_dir.search_lightcurve(
-        441801208, exptime=120, author='SPOC', mission='TESS'))
+        441801208, exptime=120, author=['SPOC', 'QLP'], mission='TESS').load())
     # print(lc_dir.search_TESSlightcurve(25285075, exptime=120, author='SPOC'))
