@@ -36,15 +36,16 @@ def test_search_local_lightcurves():
     # test search directories
     lc_dir = lkx.LightCurveDirectory(
         ['./tests/data/HLSP', './tests/data/TESS'], use_cache=False, scan_dir=True, dump_scan_results=True)
-    lcc = lc_dir.search_lightcurve(441801208, exptime=120, author='SPOC', mission='TESS')
-    assert isinstance(lcc, lkx.LightCurveCollection)
+    search_results = lc_dir.search_lightcurve(441801208, exptime=120, author='SPOC', mission='TESS')
+    assert isinstance(search_results, lkx.SearchResults)
+    lcc = search_results.load()
     assert len(lcc) == 1
     
     # test search a target with HLSP products
-    lcc = lc_dir.search_lightcurve(1925740387, author='TESS-SPOC', mission='TESS')
+    lcc = lc_dir.search_lightcurve(1925740387, author='TESS-SPOC', mission='TESS').load()
     assert isinstance(lcc, lkx.LightCurveCollection)
     assert len(lcc) == 2
     
     # test search a target with wrong author
-    lcc = lc_dir.search_lightcurve(1925740387, author='SPOC', mission='TESS')
-    assert lcc is None
+    search_results = lc_dir.search_lightcurve(1925740387, author='SPOC', mission='TESS')
+    assert search_results is None
