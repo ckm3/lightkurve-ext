@@ -25,15 +25,22 @@ AUTHOR_LIST = [
 ]
 
 
-class LightCurveDirectory():
-    @cached
-    def __init__(self, directories, use_cache=True, cache_dicts=None, scan_dir=False, dump_scan_results=False, save_updates=False):
-        """Initialize a LightCurveDirectory object. 
-        If there are existing cache files, load them with use_cache=True, 
+class LightCurveDirectory:
+    def __init__(
+        self,
+        directories,
+        use_cache=True,
+        cache_dicts=None,
+        scan_dir=False,
+        dump_scan_results=False,
+        save_updates=False,
+    ):
+        """Initialize a LightCurveDirectory object.
+        If there are existing cache files, load them with use_cache=True,
         or send a list of cache_dicts to load them.
-        If not, cache files can be created by toggling scan_dir=True. 
+        If not, cache files can be created by toggling scan_dir=True.
         And one can also dump the scan results to a file.
-        Every time when the directories are changed, the cache files will be updated, 
+        Every time when the directories are changed, the cache files will be updated,
         and the updates can be saved to a file with save_updates=True.
 
         Parameters
@@ -64,42 +71,73 @@ class LightCurveDirectory():
             self.directories = set([Path(dir) for dir in directories])
         else:
             raise TypeError(
-                "directories must be a string or pathlib.Path object or a list of strings or pathlib.Path objects")
+                "directories must be a string or pathlib.Path object or a list of strings or pathlib.Path objects"
+            )
 
         self.obsid_path_dicts = []
-        if use_cache and not cache_dicts:
-            cache_path = Path.home() / '.lightkurve_ext-cache'
-            for directory in self.directories:
-                cache_dir = cache_path / \
-                    hashlib.md5((Path(directory).as_posix()
-                                 ).encode('utf-8')).hexdigest()
-                if not cache_dir.exists():
-                    warnings.warn(
-                        f"Cache file for {directory} does not exist. Will serach files at that place without cache. You can scan the directories with scan_dir=True to generate a cache.")
-                    self.obsid_path_dicts.append({})
-                    continue
-                dumped_file_paths = [dumped_file_path for dumped_file_path in cache_dir.iterdir()
-                                     if dumped_file_path.name.endswith('.pkl')]
-                if len(dumped_file_paths) > 0:
-                    date_time_sorted_paths = sorted(
-                        dumped_file_paths, key=os.path.getmtime)
-                    with open(date_time_sorted_paths[-1], "rb") as f:
-                        self.obsid_path_dicts.append(pickle.load(f))
-                else:
-                    warnings.warn(
-                        f'Cache file for {directory} does not exist. Will serach files at that place without cache. You can scan the directories with scan_dir=True to generate a cache.')
-                    self.obsid_path_dicts.append({})
-                    continue
-        elif cache_dicts:
+        if cache_dicts:
             if len(cache_dicts) == len(self.directories):
                 self.obsid_path_dicts = cache_dicts
             else:
                 raise ValueError(
-                    'The length of cache_dicts is not equal to the length of directories.')
+                    "The length of cache_dicts is not equal to the length of directories."
+                )
         elif scan_dir:
             from .scan import cache_obsid_path
+
             self.obsid_path_dicts, self.update_dicts = cache_obsid_path(
-                self.directories, dump_results=dump_scan_results, save_update_report=save_updates)
+                self.directories,
+                dump_results=dump_scan_results,
+                save_update_report=save_updates,
+            )
+        elif use_cache:
+            cache_path = Path.home() / ".lightkurve_ext-cache"
+            for directory in self.directories:
+                cache_dir = (
+                    cache_path
+                    / hashlib.md5(
+                        (Path(directory).as_posix()).encode("utf-8")
+                    ).hexdigest()
+                )
+                if not cache_dir.exists():
+                    warnings.warn(
+                        f"Cache file for {directory} does not exist. Will serach files at that place without cache. You can scan the directories with scan_dir=True to generate a cache."
+                    )
+                    self.obsid_path_dicts.append({})
+                    continue
+                dumped_file_paths = [
+                    dumped_file_path
+                    for dumped_file_path in cache_dir.iterdir()
+                    if dumped_file_path.name.endswith(".pkl")
+                ]
+                if len(dumped_file_paths) > 0:
+                    date_time_sorted_paths = sorted(
+                        dumped_file_paths, key=os.path.getmtime
+                    )
+                    with open(date_time_sorted_paths[-1], "rb") as f:
+                        self.obsid_path_dicts.append(pickle.load(f))
+                else:
+                    warnings.warn(
+                        f"Cache file for {directory} does not exist. Will serach files at that place without cache. You can scan the directories with scan_dir=True to generate a cache."
+                    )
+                    self.obsid_path_dicts.append({})
+                    continue
+        else:
+            raise ValueError(
+                "Please specify either `use_cache` or `cache_dicts` or `scan_dir` keywords."
+            )
+
+    def __getitem__(self, key):
+        self.directories[key]
+
+    def __len__(self):
+        return len(self.directories)
+
+    def __iter__(self):
+        return iter(self.directories)
+
+    def __repr__(self):
+        return f"LightCurveDirectory({[s.as_posix() for s in self.directories]})"
 
     @cached
     def search_lightcurve(
@@ -116,7 +154,7 @@ class LightCurveDirectory():
         limit=None,
     ):
         """
-        Search for local lightcurvefiles. 
+        Search for local lightcurvefiles.
         Not like lk.search_lightcurve, this method only search for observation ID from local directory.
 
         Parameters
@@ -156,9 +194,10 @@ class LightCurveDirectory():
             If True, use the cache to speed up the search.
             By default, True.
         Returns
-        ------- 
+        -------
         LightCurve object
         """
+
         def kwargs_pattern_generator(
             target=target,
             exptime=exptime,
@@ -171,7 +210,6 @@ class LightCurveDirectory():
             sector=sector,
             limit=limit,
         ):
-
             def _pack_exptime(exptime):
                 if isinstance(exptime, str):
                     exptime = exptime.lower()
@@ -194,7 +232,8 @@ class LightCurveDirectory():
                     yield "*"
                 else:
                     raise TypeError(
-                        "exptime must be a str, int, float, list, tuple, or set")
+                        "exptime must be a str, int, float, list, tuple, or set"
+                    )
 
             if quarter:
                 mission = "Kepler"
@@ -208,7 +247,7 @@ class LightCurveDirectory():
             elif isinstance(sector, (list, tuple)):
                 pass
             elif sector is None or sector == "*" or sector == "all":
-                sector = ['*']
+                sector = ["*"]
             else:
                 raise TypeError("sector must be an int or a list of ints")
 
@@ -226,22 +265,22 @@ class LightCurveDirectory():
                 for et in set(_pack_exptime(exptime)):
                     for a in author:
                         # currently, I only implement the products of TESS mission
-                        if a == 'SPOC' and (et == 120 or et == "*"):
+                        if a == "SPOC" and (et == 120 or et == "*"):
                             pattern = f"tess*-s{s:{'04d' if s != '*' else ''}}-{target:016d}-[0-9]*-[xsab]_lc.fits*"
                             yield pattern
-                        elif a == 'SPOC' and (et == 20 or et == "*"):
+                        elif a == "SPOC" and (et == 20 or et == "*"):
                             pattern = f"tess*-s{s:{'04d' if s != '*' else ''}}-{target:016d}-[0-9]*-[xsab]_fast-lc.fits*"
                             yield pattern
-                        elif a == 'TESS-SPOC':
+                        elif a == "TESS-SPOC":
                             pattern = f"hlsp_tess-spoc_tess_phot_{target:016d}-s{s:{'04d' if s != '*' else ''}}_tess_v1_lc.fits*"
                             yield pattern
-                        elif a == 'QLP':
+                        elif a == "QLP":
                             pattern = f"hlsp_qlp_tess_ffi_s{s:{'04d' if s != '*' else ''}}-{target:016d}_tess_v01_llc.fits*"
                             yield pattern
-                        elif a == 'TASOC':
+                        elif a == "TASOC":
                             pattern = f"hlsp_tasoc_tess_*_tic{target:011d}-s{s:{'02d' if s != '*' else ''}}-*-*-c{et:{'04d' if et != '*' else ''}}_tess_v*lc.fits*"
                             yield pattern
-                        elif a == 'PATHOS':
+                        elif a == "PATHOS":
                             pattern = f"hlsp_pathos_tess_lightcurve_tic-{target:010d}-s{s:{'04d' if s != '*' else ''}}_tess_v1_llc.fits*"
                             yield pattern
 
@@ -251,13 +290,14 @@ class LightCurveDirectory():
                 if mission in ["Kepler", "K2", "TESS"]:
                     return mission
                 else:
-                    raise ValueError(
-                        "Mission must be one of Kepler, K2, or TESS.")
+                    raise ValueError("Mission must be one of Kepler, K2, or TESS.")
 
         # Search for local lightcurves
         if len(self.obsid_path_dicts) == len(self.directories):
             local_path = []
-            for obsid_path_dict, directory in zip(self.obsid_path_dicts, self.directories):
+            for obsid_path_dict, directory in zip(
+                self.obsid_path_dicts, self.directories
+            ):
                 if obsid_path_dict:
                     try:
                         cached_local_path = obsid_path_dict[target]
@@ -318,7 +358,7 @@ class LightCurveDirectory():
         sector=None,
         limit=None,
         has_sector_tree=True,
-        use_cache=True
+        use_cache=True,
     ):
         """
         Search for local TESS lightcurves, and return a LightCurveCollection.
@@ -347,7 +387,7 @@ class LightCurveDirectory():
             If True, local directory should be a constructed by different sectors.
             e.g., ``local_path/sector_1/**/*.fits``, ``local_path/sector_2/**/*.fits``, etc.
             Then, the search method will more effiencient.
-            If False, the local directory are not constructed by different sectors, 
+            If False, the local directory are not constructed by different sectors,
             and the search method might be slower.
         use_cache : bool
             If True, the search will use a cache to speed up the search.
@@ -355,9 +395,10 @@ class LightCurveDirectory():
             The cache is stored in ``~/.lightkurve_ext-cache/obsid_path_dict.pkl``.
             Default is True.
         Returns
-        ------- 
+        -------
 
         """
+
         def kwargs_pattern_generator(
             target=target,
             exptime=exptime,
@@ -366,6 +407,9 @@ class LightCurveDirectory():
             sector=sector,
             limit=limit,
         ):
+
+            if not isinstance(target, int):
+                raise ValueError("Target must be an integer.")
 
             def _pack_exptime(exptime):
                 if isinstance(exptime, str):
@@ -389,21 +433,22 @@ class LightCurveDirectory():
                     yield "*"
                 else:
                     raise TypeError(
-                        "exptime must be a str, int, float, list, tuple, or set")
+                        "exptime must be a str, int, float, list, tuple, or set"
+                    )
 
             if isinstance(sector, int):
                 sector = [sector]
             elif isinstance(sector, (list, tuple)):
                 pass
             elif sector is None or sector == "*" or sector == "all":
-                sector = ['*']
+                sector = ["*"]
             else:
                 raise TypeError("sector must be an int or a list of ints")
 
             if isinstance(author, str):
                 if author not in AUTHOR_LIST:
                     raise ValueError(f"author must be one of {AUTHOR_LIST}")
-                elif author == '*' or author == 'all':
+                elif author == "*" or author == "all":
                     author = AUTHOR_LIST
                 else:
                     author = [author]
@@ -413,26 +458,29 @@ class LightCurveDirectory():
             for s in sector:
                 for et in set(_pack_exptime(exptime)):
                     for a in author:
-                        if a == 'SPOC' and (et == 120 or et == "*"):
+                        if a == "SPOC" and (et == 120 or et == "*"):
                             pattern = f"tess*-s{s:{'04d' if s != '*' else ''}}-{target:016d}-[0-9]*-[xsab]_lc.fits*"
                             yield pattern, s
-                        elif a == 'SPOC' and (et == 20 or et == "*"):
+                        elif a == "SPOC" and (et == 20 or et == "*"):
                             pattern = f"tess*-s{s:{'04d' if s != '*' else ''}}-{target:016d}-[0-9]*-[xsab]_fast-lc.fits*"
                             yield pattern, s
-                        elif a == 'TESS-SPOC':
+                        elif a == "TESS-SPOC":
                             pattern = f"hlsp_tess-spoc_tess_phot_{target:016d}-s{s:{'04d' if s != '*' else ''}}_tess_v1_lc.fits*"
                             yield pattern, s
-                        elif a == 'QLP':
+                        elif a == "QLP":
                             pattern = f"hlsp_qlp_tess_ffi_s{s:{'04d' if s != '*' else ''}}-{target:016d}_tess_v01_llc.fits*"
                             yield pattern, s
-                        elif a == 'TASOC':
+                        elif a == "TASOC":
                             pattern = f"hlsp_tasoc_tess_*_tic{target:011d}-s{s:{'02d' if s != '*' else ''}}-*-*-c{et:{'04d' if et != '*' else ''}}_tess_v*lc.fits*"
                             yield pattern, s
-                        elif a == 'PATHOS':
+                        elif a == "PATHOS":
                             pattern = f"hlsp_pathos_tess_lightcurve_tic-{target:010d}-s{s:{'04d' if s != '*' else ''}}_tess_v1_llc.fits*"
                             yield pattern, s
 
-        warnings.warn("This function is deprecated. Better to use search_lightcurve instead. Unless you have to search it without cache file.", DeprecationWarning)
+        warnings.warn(
+            "This function is deprecated. Better to use search_lightcurve instead. Unless you have to search it without cache file.",
+            DeprecationWarning,
+        )
 
         # Search for local lightcurves
         local_path = self.directories
@@ -444,7 +492,7 @@ class LightCurveDirectory():
                 target,
                 exptime=exptime,
                 cadence=cadence,
-                mission='TESS',
+                mission="TESS",
                 author=author,
                 sector=sector,
                 limit=limit,
@@ -454,17 +502,22 @@ class LightCurveDirectory():
             for path in local_path:
                 path = Path(path)
                 for directory in [x.stem for x in path.iterdir() if x.is_dir()]:
-                    if re.match('.*[0-9].*', directory):
-                        local_sector_name_dict[int(
-                            re.sub("[^0-9]", "", directory))] = directory
+                    if re.match(".*[0-9].*", directory):
+                        local_sector_name_dict[
+                            int(re.sub("[^0-9]", "", directory))
+                        ] = directory
             if len(local_sector_name_dict) == 0:
                 raise ValueError(
-                    "Local directory is not constructed by different sectors")
+                    "Local directory is not constructed by different sectors"
+                )
 
         if len(self.obsid_path_dict) > 0:
             cached_local_path = self.obsid_path_dict[target]
-            local_path = [p if Path(lp) in p.parents else Path(lp)
-                          for p in cached_local_path for lp in local_path]
+            local_path = [
+                p if Path(lp) in p.parents else Path(lp)
+                for p in cached_local_path
+                for lp in local_path
+            ]
 
         files = []
         for path in local_path:
@@ -479,37 +532,42 @@ class LightCurveDirectory():
                 if path.is_file():
                     if fnmatch(path.name, pattern):
                         files.append(path)
-                elif sec == '*':
+                elif sec == "*":
                     files.extend(path.rglob(pattern))
                 else:
-                    files.extend(
-                        (path / local_sector_name_dict[sec]).rglob(pattern))
+                    files.extend((path / local_sector_name_dict[sec]).rglob(pattern))
 
         if len(files) == 0:
             return None
 
         # lc_collection = [_revise_author(lk.read(file)) for file in set(files)]
         # Return lightcurves
-        return SearchResult(files)
+        return SearchResults(files)
 
 
 class SearchResults(object):
     def __init__(self, results: list or set):
         self.results = sorted(results)
+
     def __iter__(self):
         return iter(self.results)
+
     def __getitem__(self, key):
         return self.results[key]
+
     def __len__(self):
         return len(self.results)
+
     def __repr__(self):
         out = "SearchResults containing {} data products.".format(len(self.results))
         out += "\n"
         for i, r in enumerate(self.results):
             out += f"{i}: {r}\n"
         return out
+
     def __str__(self):
         return f"SearchResults({[s.as_posix() for s in self.results]})"
+
     def load(self, **kwargs):
         # read files in the list and return a LightCurveCollection
         """Reads any valid Kepler or TESS data file and returns an instance of
@@ -536,18 +594,34 @@ class SearchResults(object):
         -------
         _type_
             _description_
-        """        
-        return LightCurveCollection([_revise_author(lk.read(file, **kwargs)) for file in self.results])
-    
+        """
+        return LightCurveCollection(
+            [_revise_author(lk.read(file, **kwargs)) for file in self.results]
+        )
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     from .search_local import LightCurveDirectory
+
     lc_dir = LightCurveDirectory(
-        ['/home/ckm/.lightkurve-cache/mastDownload/HLSP', '/home/ckm/.lightkurve-cache/mastDownload/TESS'], use_cache=True, scan_dir=True, dump_scan_results=True)
-    print(repr(lc_dir.search_lightcurve(
-        441801208, exptime=120, author='SPOC', mission='TESS')))
-    print(lc_dir.search_lightcurve(
-        441801208, exptime=120, author=['SPOC', 'QLP'], mission='TESS').load())
+        [
+            "/home/ckm/.lightkurve-cache/mastDownload/HLSP",
+            "/home/ckm/.lightkurve-cache/mastDownload/TESS",
+        ],
+        use_cache=True,
+        scan_dir=True,
+        dump_scan_results=True,
+    )
+    print(
+        repr(
+            lc_dir.search_lightcurve(
+                441801208, exptime=120, author="SPOC", mission="TESS"
+            )
+        )
+    )
+    print(
+        lc_dir.search_lightcurve(
+            441801208, exptime=120, author=["SPOC", "QLP"], mission="TESS"
+        ).load()
+    )
     # print(lc_dir.search_TESSlightcurve(25285075, exptime=120, author='SPOC'))
