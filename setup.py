@@ -27,6 +27,6 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"],
-    python_requires='>=3.6.1',
+    python_requires='>=3.8.0',
     install_requires=["lightkurve>=2.0"],
 )
