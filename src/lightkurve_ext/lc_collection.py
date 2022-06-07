@@ -11,32 +11,39 @@ from .helper_func import _revise_author
 class LightCurveCollection(lk.LightCurveCollection):
     def __init__(self, lightcurves):
         lightcurves = [LightCurve(lc) for lc in lightcurves]
-        sorted_lightcurves = sorted(lightcurves, key=lambda x: x.meta.get('TSTART'))
+        sorted_lightcurves = sorted(lightcurves, key=lambda x: x.meta.get("TSTART"))
         super().__init__(sorted_lightcurves)
 
     def _norm_var(self, lc):
         lc = lc.copy()
         # This normlization can handle the negative flux values.
         median_flux = np.nanmedian(lc.flux.value)
-        lc['flux'] = Quantity((lc.flux.value - median_flux) /
-                              np.abs(median_flux), unit=u.dimensionless_unscaled)
+        lc["flux"] = Quantity(
+            (lc.flux.value - median_flux) / np.abs(median_flux),
+            unit=u.dimensionless_unscaled,
+        )
 
         # The flux error is not well processed, I will probably use uncertainties to handle it.
-        lc['flux_err'] = Quantity(
-            lc['flux_err'].value/np.abs(median_flux), unit=u.dimensionless_unscaled)
+        lc["flux_err"] = Quantity(
+            lc["flux_err"].value / np.abs(median_flux), unit=u.dimensionless_unscaled
+        )
         lc.meta["NORMALIZED"] = True
         return lc
 
     def stitch(self, corrector_func=None):
         if corrector_func is None:
-            def corrector_func(x): return self._norm_var(x)
-        lc = lk.LightCurveCollection.stitch(
-            self, corrector_func=corrector_func)
+
+            def corrector_func(x):
+                return self._norm_var(x)
+
+        lc = lk.LightCurveCollection.stitch(self, corrector_func=corrector_func)
         lc = LightCurve(lc)
         lc.sort()
         return lc
 
-    def select_lc_with_author_priority(self, author_priority_list=['SPOC', 'TESS-SPOC', 'QLP', 'TASOC']):
+    def select_lc_with_author_priority(
+        self, author_priority_list=["SPOC", "TESS-SPOC", "QLP", "TASOC"]
+    ):
         """
         Given a list of authors, return a lc according to the given author priority
         """
@@ -55,13 +62,12 @@ class LightCurveCollection(lk.LightCurveCollection):
                         break
                     for lc in dup_lcc:
                         lc = _revise_author(lc.copy())
-                        if lc.meta.get('AUTHOR') == pr:
+                        if lc.meta.get("AUTHOR") == pr:
                             lcc_without_duplicates.append(lc)
                             have_found = 1
                             break
             else:
-                lcc_without_duplicates.append(
-                    self[self.sector == sec][0])
+                lcc_without_duplicates.append(self[self.sector == sec][0])
 
         return lcc_without_duplicates
 
@@ -74,10 +80,13 @@ class LightCurve(lk.LightCurve):
         lc = self.copy()
         median_flux = np.nanmedian(lc.flux.value)
         min_flux = np.nanmin(lc.flux.value)
-        lc.flux = Quantity((lc.flux.value - min_flux) /
-                           (median_flux - min_flux) - 1, unit=u.dimensionless_unscaled)
+        lc.flux = Quantity(
+            (lc.flux.value - min_flux) / (median_flux - min_flux) - 1,
+            unit=u.dimensionless_unscaled,
+        )
         lc.flux_err = Quantity(
-            lc.flux_err.value / (median_flux - min_flux), unit=u.dimensionless_unscaled)
+            lc.flux_err.value / (median_flux - min_flux), unit=u.dimensionless_unscaled
+        )
 
         lc.meta["NORMALIZED"] = True
         return lc
@@ -86,15 +95,20 @@ class LightCurve(lk.LightCurve):
         lc = self.copy()
         lc.sort()
         time_diff = np.diff(lc.time.value)
-        gap_indices = [0] + \
-            np.where(time_diff > gap_threshold)[0].tolist() + [-1]
+        gap_indices = [0] + np.where(time_diff > gap_threshold)[0].tolist() + [-1]
 
         for i in range(len(gap_indices)):
-            if gap_indices[i] != -1 and abs(gap_indices[i+1] - gap_indices[i]) > 1:
-                yield lc[gap_indices[i]+1 if gap_indices[i] != 0 else 0: None if gap_indices[i+1] == -1 else gap_indices[i+1]+1]
+            if gap_indices[i] != -1 and abs(gap_indices[i + 1] - gap_indices[i]) > 1:
+                yield lc[
+                    gap_indices[i] + 1
+                    if gap_indices[i] != 0
+                    else 0 : None
+                    if gap_indices[i + 1] == -1
+                    else gap_indices[i + 1] + 1
+                ]
 
     def fill_gaps(self, method: str = "gaussian_noise"):
-        """Fill in gaps in time. 
+        """Fill in gaps in time.
         Adopted from ``lightkurve`` package with few modification to support other methods.
 
         By default, the gaps will be filled with random white Gaussian noise
@@ -120,10 +134,8 @@ class LightCurve(lk.LightCurve):
         # Find missing time points
         # Most precise method, taking into account time variation due to orbit
         if hasattr(lc, "cadenceno"):
-            dt = lc.time.value - \
-                np.median(np.diff(lc.time.value)) * lc.cadenceno.value
-            ncad = np.arange(
-                lc.cadenceno.value[0], lc.cadenceno.value[-1] + 1, 1)
+            dt = lc.time.value - np.median(np.diff(lc.time.value)) * lc.cadenceno.value
+            ncad = np.arange(lc.cadenceno.value[0], lc.cadenceno.value[-1] + 1, 1)
             in_original = np.in1d(ncad, lc.cadenceno.value)
             ncad = ncad[~in_original]
             ndt = np.interp(ncad, lc.cadenceno.value, dt)
@@ -147,8 +159,7 @@ class LightCurve(lk.LightCurve):
             in_original = np.in1d(ntime, lc.time.value)
 
         # Fill in time points
-        newdata["time"] = Time(
-            ntime, format=lc.time.format, scale=lc.time.scale)
+        newdata["time"] = Time(ntime, format=lc.time.format, scale=lc.time.scale)
         f = np.zeros(len(ntime))
         f[in_original] = np.copy(lc.flux)
         fe = np.zeros(len(ntime))
@@ -156,12 +167,14 @@ class LightCurve(lk.LightCurve):
 
         # Temporary workaround for issue #1172.  TODO: remove the `if`` statement
         # below once we adopt AstroPy >=5.0.3 as a minimum dependency.
-        if hasattr(lc.flux_err, 'mask'):
+        if hasattr(lc.flux_err, "mask"):
             fe[~in_original] = np.interp(
-                ntime[~in_original], lc.time.value, lc.flux_err.unmasked)
+                ntime[~in_original], lc.time.value, lc.flux_err.unmasked
+            )
         else:
             fe[~in_original] = np.interp(
-                ntime[~in_original], lc.time.value, lc.flux_err)
+                ntime[~in_original], lc.time.value, lc.flux_err
+            )
 
         if method == "gaussian_noise":
             try:
@@ -171,9 +184,9 @@ class LightCurve(lk.LightCurve):
             f[~in_original] = np.random.normal(
                 np.nanmean(lc.flux.value), std, (~in_original).sum()
             )
-        elif method.casefold() == 'NaN'.casefold():
+        elif method.casefold() == "NaN".casefold():
             f[~in_original] = np.nan
-        elif method == 'zero':
+        elif method == "zero":
             f[~in_original] = 0
         else:
             raise NotImplementedError("No such method as {}".format(method))
@@ -197,32 +210,112 @@ class LightCurve(lk.LightCurve):
             new_values[in_original] = np.copy(old_values)
             newdata[column] = new_values
         """
-        return LightCurve(data=newdata, meta=self.meta)
+        return self.__class__(data=newdata, meta=self.meta)
 
+    def fast_bin(self, num_bins, bin_width=None, x_min=None, x_max=None):
+        """Fast binning of light curve data.
 
-if __name__ == "__main__":
-    # lc = LightCurve(time=np.concatenate(
-    #     [np.arange(0, 5, 0.1), np.arange(10, 15, 0.1)]), flux=np.arange(0, 10, 0.1), flux_err=0)
-    # for temp_lc in LightCurveCollection(lc.split_by_gap()):
-    #     print(temp_lc.time.value.min(), temp_lc.time.value.max())
+        Parameters
+        ----------
+        num_bins : int
+            The number of intervals to divide the x-axis into. Must be at
+            least 2.
+        bin_width : `~astropy.units.Quantity`
+            The width of each bin on the x-axis. Must be positive, and less
+            than x_max - x_min. Defaults to (x_max - x_min) / num_bins.
+        x_min : `~astropy.units.Quantity`
+            The inclusive leftmost value to consider on the x-axis. Must be less
+            than or equal to the largest value of x. Defaults to min(x).
+        x_max : `~astropy.units.Quantity`
+            The exclusive rightmost value to consider on the x-axis. Must be
+            greater than x_min. Defaults to max(x).
 
-    # raw_lc = LightCurveCollection(lc.split_by_gap()).stitch()
-    # for temp_lc in LightCurveCollection(raw_lc.split_by_gap()):
-    #     print(temp_lc.time.value.min(), temp_lc.time.value.max())
+        Returns
+        -------
+        binned_lightcurve : `LightCurve`
+            A new light curve object with the data binned.
+        """
+        x = self.time.value
+        y = self.flux.value
 
-    from .search_local import LightCurveDirectory
-    lc_dir = LightCurveDirectory(
-        '/home/ckm/.lightkurve-cache/mastDownload/TESS')
-    lcc = lc_dir.search_lightcurve(73228647, author='SPOC').load().select_lc_with_author_priority()
-    lc = lcc.stitch().remove_nans()
-    lc_length = len(lc)
+        if num_bins < 2:
+            raise ValueError("num_bins must be at least 2. Got: %d" % num_bins)
 
-    l = 0
-    for lc in lc.split_by_gap():
-        print(np.diff(lc.time.value).max())
-        l += len(lc)
-        # print(len(lc.fill_gaps(method='gaussian_noise')))
-        print(len(lc.fill_gaps(method='NaN')))
-        print(len(lc.fill_gaps(method='zero')))
+        # Validate the lengths of x and y.
+        x_len = len(x)
+        if x_len < 2:
+            raise ValueError("len(x) must be at least 2. Got: %s" % x_len)
+        if x_len != len(y):
+            raise ValueError(
+                "len(x) (got: %d) must equal len(y) (got: %d)" % (x_len, len(y))
+            )
 
-    assert l == lc_length
+        # Validate x_min and x_max.
+        x_min = x_min if x_min is not None else x[0]
+        x_max = x_max if x_max is not None else x[-1]
+        if x_min >= x_max:
+            raise ValueError(
+                "x_min (got: %d) must be less than x_max (got: %d)" % (x_min, x_max)
+            )
+        if x_min > x[-1]:
+            raise ValueError(
+                "x_min (got: %d) must be less than or equal to the largest value of x "
+                "(got: %d)" % (x_min, x[-1])
+            )
+
+        # Validate bin_width.
+        bin_width = bin_width if bin_width is not None else (x_max - x_min) / num_bins
+        if bin_width <= 0:
+            raise ValueError("bin_width must be positive. Got: %d" % bin_width)
+        if bin_width >= x_max - x_min:
+            raise ValueError(
+                "bin_width (got: %d) must be less than x_max - x_min (got: %d)"
+                % (bin_width, x_max - x_min)
+            )
+
+        bin_spacing = (x_max - x_min - bin_width) / (num_bins - 1)
+
+        # Bins with no y-values will fall back to the global median.
+        result = np.repeat(np.nan, num_bins)
+
+        # Find the first element of x >= x_min. This loop is guaranteed to produce
+        # a valid index because we know that x_min <= x[-1].
+        x_start = 0
+        while x[x_start] < x_min:
+            x_start += 1
+
+        # The bin at index i is the median of all elements y[j] such that
+        # bin_min <= x[j] < bin_max, where bin_min and bin_max are the endpoints of
+        # bin i.
+        bin_min = x_min  # Left endpoint of the current bin.
+        bin_max = x_min + bin_width  # Right endpoint of the current bin.
+        j_start = x_start  # Inclusive left index of the current bin.
+        j_end = x_start  # Exclusive end index of the current bin.
+
+        for i in range(num_bins):
+            # Move j_start to the first index of x >= bin_min.
+            while j_start < x_len and x[j_start] < bin_min:
+                j_start += 1
+
+            # Move j_end to the first index of x >= bin_max (exclusive end index).
+            while j_end < x_len and x[j_end] < bin_max:
+                j_end += 1
+
+            if j_end > j_start:
+                # Compute and insert the median bin value.
+                result[i] = np.nanmedian(y[j_start:j_end])
+
+            # Advance the bin.
+            bin_min += bin_spacing
+            bin_max += bin_spacing
+
+        return self.__class__(
+            time=np.linspace(
+                x_min + bin_spacing / 2,
+                x_max - bin_spacing / 2,
+                num_bins,
+                endpoint=True,
+            ),
+            flux=result * self.flux.unit,
+            meta=self.meta,
+        )
