@@ -8,7 +8,8 @@ Thanks to lk, one can easily access the data of the light curves, and perform so
 Although it's excellent design greatly enhances productivity, I still have some own requirements on my daily work. Therefore, I created this extensive package.
 Some features are listed below:
 
-- lk provides a conventient interface to search for light cuves from MAST, but usually I already have downloaded some data. Our `lkx.LightCurveDirectory` class can handle directories contain light curves. `search_lightcurve()` method can search for the light curve files in the above directory and return them as a `lkx.SearchResults` object. It can be simply loaded as a `lkx.LightCurveCollection` object with the `load()` method.
+- lk provides a conventient interface to search for light cuves from MAST, but usually I have already downloaded some data.
+So, I use similar API to implement a searching process on local directory. The `lkx.LightCurveDirectory` class can handle directories contain light curves. `search_lightcurve()` method can search for the light curve files in the above directory and return them as a `lkx.SearchResults` object. It can be simply loaded as a `lkx.LightCurveCollection` object with the `load()` method.
 - Before running the search, I highly recommend you to scan your target directories and crate a cache file. This can be done with a toggling `scan_dir=True` and dramatically accelerate your following search work. Once you have saved your cache file (with `dump_scan_resutls=True`), you can search for light curve files with `use_cache=True`, and no need to re-scan your directories until the content of directories are changed.
 
 For example

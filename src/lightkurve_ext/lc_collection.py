@@ -98,7 +98,7 @@ class LightCurve(lk.LightCurve):
         gap_indices = [0] + np.where(time_diff > gap_threshold)[0].tolist() + [-1]
 
         for i in range(len(gap_indices)):
-            if gap_indices[i] != -1 and abs(gap_indices[i + 1] - gap_indices[i]) > 1:
+            if gap_indices[i] != -1 and abs(gap_indices[i + 1] - gap_indices[i]) >= 1:
                 yield lc[
                     gap_indices[i] + 1
                     if gap_indices[i] != 0
