@@ -7,3 +7,5 @@ Untitled-1.ipynb
 *.pf
 .pytest_cache/
 tests/__pycache__/
+build/
+dist/
