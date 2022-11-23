@@ -2,7 +2,7 @@ import numpy as np
 
 
 def _revise_author(lc):
-    """This function is useful because the author of TESS-SPOC file is same with SPOC file,
+    """This function is useful because the author of TESS-SPOC file (one of a HLSP products) is same with SPOC file,
     That makes the selction useless when SPOC and TESS-SPOC are both in the list.
     """
     if lc.meta.get("AUTHOR") != "SPOC":
