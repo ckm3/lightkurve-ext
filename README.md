@@ -5,7 +5,8 @@ This is an extension for the [Lightkurve](https://github.com/lightkurve/lightkur
 Lightkurve (lk) is a Python package designed for the analysis of Kepler/K2/TESS light curves.
 
 Thanks to lk, one can easily access the data of the light curves, and perform some basic analysis.
-Although it's excellent design greatly enhances productivity, I still have some own requirements on my daily work. Therefore, I created this extensive package.
+Although it's excellent design greatly enhances productivity, I still have some own requirements on my daily work. Therefore, I created this extensive package. This package is still under development, and I will add more features in the future. If you have simialr requirements, please join me to make it better.
+
 Some features are listed below:
 
 - lk provides a conventient interface to search for light cuves from MAST, but usually I have already downloaded some data.
