@@ -1,5 +1,7 @@
 # Lightkurve-ext
 
+![PyPI](https://img.shields.io/pypi/v/lightkurve-ext?style=flat) ![PyPI - License](https://img.shields.io/pypi/l/lightkurve-ext)
+
 This is an extension for the [Lightkurve](https://github.com/lightkurve/lightkurve) package.
 
 Lightkurve (lk) is a Python package designed for the analysis of Kepler/K2/TESS light curves.
