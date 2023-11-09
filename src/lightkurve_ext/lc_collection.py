@@ -4,6 +4,7 @@ import lightkurve as lk
 import numpy as np
 from astropy import units as u
 from astropy.time import Time
+from astropy.utils.masked.core import MaskedNDArray
 from astropy.units.quantity import Quantity
 from .helper_func import _revise_author
 
@@ -17,7 +18,10 @@ class LightCurveCollection(lk.LightCurveCollection):
     def _norm_var(self, lc):
         lc = lc.copy()
         # This normlization can handle the negative flux values.
-        median_flux = np.nanmedian(lc.flux.value)
+        if isinstance(lc.flux, MaskedNDArray):
+            median_flux = np.nanmedian(lc.flux.data)
+        else:
+            median_flux = np.nanmedian(lc.flux.value)
         lc["flux"] = Quantity(
             (lc.flux.value - median_flux) / np.abs(median_flux),
             unit=u.dimensionless_unscaled,
