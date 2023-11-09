@@ -6,6 +6,7 @@ from astropy import units as u
 from astropy.time import Time
 from astropy.utils.masked.core import MaskedNDArray
 from astropy.units.quantity import Quantity
+from uncertainties import unumpy
 from .helper_func import _revise_author
 
 
@@ -22,6 +23,10 @@ class LightCurveCollection(lk.LightCurveCollection):
             median_flux = np.nanmedian(lc.flux.data)
         else:
             median_flux = np.nanmedian(lc.flux.value)
+
+        if np.isclose(median_flux, 0, rtol=1e-5):
+            return lc
+
         lc["flux"] = Quantity(
             (lc.flux.value - median_flux) / np.abs(median_flux),
             unit=u.dimensionless_unscaled,
