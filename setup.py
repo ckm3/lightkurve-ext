@@ -4,7 +4,7 @@ import setuptools
 
 setuptools.setup(
     name="lightkurve-ext",
-    version="0.1.0",
+    version="0.1.1",
     author="Kaiming Cui",
     author_email="cuikaiming@sjtu.edu.cn",
     description='Extras for the "lightkurve" library.',

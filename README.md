@@ -31,6 +31,14 @@ Moreover, I also supply a function for selecting light curves between different 
 - Overwrite the `LightCurve` and `LightCurveCollection` classes to add some useful methods. For instance, our  `stitch` method of `LightCurveCollection` can handle negative flux value and normalize it as the relative variability. The `split_by_gap` method of `LightCurve` object will split a light curve into different parts with a given gap threshold. I also added some new method for the `fill_gaps` method to make it support filling with NaN and zero.
 
 ## Installation
+Easy to install `lightkurve-ext` with pip:
+
+```
+pip install lightkurve-ext -U
+```
+
+Or install from source:
+
 ```
 git clone https://github.com/ckm3/lightkurve-ext.git
 cd lightkurve-ext
