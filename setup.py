@@ -13,7 +13,7 @@ setuptools.setup(
         # LightKurve-ext
         This is an extension for the [LightKurve](https://github.com/lightkurve/lightkurve) package.
         It provides some useful functions for light curve analysis.
-        E.g. ``search_lightcurve``.
+        E.g. ``search_lightcurve`` can search your downloaded light curve files locally and return a LightCurveCollection object.
     """,
     long_description_content_type="text/markdown",
     package_dir={"": "src"},
