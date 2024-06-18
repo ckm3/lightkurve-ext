@@ -1,7 +1,5 @@
 import re
-import os
-import pickle
-import hashlib
+import sqlite3
 import warnings
 import lightkurve as lk
 from pathlib import Path
@@ -28,35 +26,29 @@ AUTHOR_LIST = [
 class LightCurveDirectory:
     def __init__(
         self,
-        directories,
+        directory,
         use_cache=True,
-        cache_dicts=None,
+        # cache_dicts=None,
         scan_dir=False,
-        dump_scan_results=False,
-        save_updates=False,
+        # dump_scan_results=False,
+        # save_updates=False,
     ):
         """Initialize a LightCurveDirectory object.
         If there are existing cache files, load them with use_cache=True,
         or send a list of cache_dicts to load them.
         If not, cache files can be created by toggling scan_dir=True.
         And one can also dump the scan results to a file.
-        Every time when the directories are changed, the cache files will be updated,
+        Every time when the directory are changed, the cache files will be updated,
         and the updates can be saved to a file with save_updates=True.
 
         Parameters
         ----------
-        directories : _type_
-            input directories
+        directory : _type_
+            input directory
         use_cache : bool, optional
             whether to use local cache files, by default True
-        cache_dicts : _type_, optional
-            input an existing cached dicts, by default None
         scan_dir : bool, optional
-            whether to scan the input directories, by default False
-        dump_scan_results : bool, optional
-            whether to save the scan resutls to local cache files, by default False
-        save_updates : bool, optional
-            whether to save the updates between the updated results to the previous cached files, by default False
+            whether to scan the input directory, by default False
 
         Raises
         ------
@@ -65,79 +57,30 @@ class LightCurveDirectory:
         ValueError
             _description_
         """
-        if isinstance(directories, str) or isinstance(directories, Path):
-            self.directories = [Path(directories)]
-        elif isinstance(directories, list):
-            self.directories = set([Path(dir) for dir in directories])
+        if isinstance(directory, str) or isinstance(directory, Path):
+            self.directory = Path(directory)
         else:
             raise TypeError(
-                "directories must be a string or pathlib.Path object or a list of strings or pathlib.Path objects"
+                "directory must be a string or pathlib.Path object or a list of strings or pathlib.Path objects"
             )
+        cache_path = Path.home() / ".lightkurve_ext-cache"
+        self.cache_database_path = cache_path / "TESS_light_curve.db"
 
-        self.obsid_path_dicts = []
-        if cache_dicts:
-            if len(cache_dicts) == len(self.directories):
-                self.obsid_path_dicts = cache_dicts
-            else:
-                raise ValueError(
-                    "The length of cache_dicts is not equal to the length of directories."
-                )
-        elif scan_dir:
+        if scan_dir:
             from .scan import cache_obsid_path
 
-            self.obsid_path_dicts, self.update_dicts = cache_obsid_path(
-                self.directories,
-                dump_results=dump_scan_results,
-                save_update_report=save_updates,
+            cache_obsid_path(
+                self.directory,
             )
         elif use_cache:
-            cache_path = Path.home() / ".lightkurve_ext-cache"
-            for directory in self.directories:
-                cache_dir = (
-                    cache_path
-                    / hashlib.md5(
-                        (Path(directory).as_posix()).encode("utf-8")
-                    ).hexdigest()
+            if not self.cache_database_path.exists():
+                warnings.warn(
+                    f"Cache database does not exist. Will serach files at that place without cache. You can scan the directory with scan_dir=True to generate a cache."
                 )
-                if not cache_dir.exists():
-                    warnings.warn(
-                        f"Cache file for {directory} does not exist. Will serach files at that place without cache. You can scan the directories with scan_dir=True to generate a cache."
-                    )
-                    self.obsid_path_dicts.append({})
-                    continue
-                dumped_file_paths = [
-                    dumped_file_path
-                    for dumped_file_path in cache_dir.iterdir()
-                    if dumped_file_path.name.endswith(".pkl")
-                ]
-                if len(dumped_file_paths) > 0:
-                    date_time_sorted_paths = sorted(
-                        dumped_file_paths, key=os.path.getmtime
-                    )
-                    with open(date_time_sorted_paths[-1], "rb") as f:
-                        self.obsid_path_dicts.append(pickle.load(f))
-                else:
-                    warnings.warn(
-                        f"Cache file for {directory} does not exist. Will serach files at that place without cache. You can scan the directories with scan_dir=True to generate a cache."
-                    )
-                    self.obsid_path_dicts.append({})
-                    continue
         else:
             raise ValueError(
-                "Please specify either `use_cache` or `cache_dicts` or `scan_dir` keywords."
+                "Please specify either `use_cache` or `scan_dir` keywords."
             )
-
-    def __getitem__(self, key):
-        self.directories[key]
-
-    def __len__(self):
-        return len(self.directories)
-
-    def __iter__(self):
-        return iter(self.directories)
-
-    def __repr__(self):
-        return f"LightCurveDirectory({[s.as_posix() for s in self.directories]})"
 
     @cached
     def search_lightcurve(
@@ -152,6 +95,7 @@ class LightCurveDirectory:
         campaign=None,
         sector=None,
         limit=None,
+        use_cache=True,
     ):
         """
         Search for local lightcurvefiles.
@@ -293,24 +237,18 @@ class LightCurveDirectory:
                     raise ValueError("Mission must be one of Kepler, K2, or TESS.")
 
         # Search for local lightcurves
-        if len(self.obsid_path_dicts) == len(self.directories):
-            local_path = []
-            for obsid_path_dict, directory in zip(
-                self.obsid_path_dicts, self.directories
-            ):
-                if obsid_path_dict:
-                    try:
-                        cached_local_path = obsid_path_dict[target]
-                    except KeyError:
-                        # warnings.warn(
-                        #     f"Target {target} not found in {directory}")
-                        continue
-                    local_path += cached_local_path
-                else:
-                    local_path.append(directory)
-        else:
-            local_path = self.directories
+        local_path = [self.directory]
 
+        # Search with databse query
+        if self.cache_database_path.exists() and use_cache:
+            conn = sqlite3.connect(self.cache_database_path)
+            c = conn.cursor()
+            c.execute(f"SELECT file_path FROM tess_light_curve WHERE ticid={target}")
+            rows = c.fetchall()
+            conn.close()
+            local_path = [Path(row[0]) for row in rows]
+
+        # Search with path glob
         files = []
         for path in set(local_path):
             path = Path(path)
@@ -344,8 +282,6 @@ class LightCurveDirectory:
                 uniq_files.append(f)
                 seen.add(f.name)
 
-        # lc_collection = [_revise_author(lk.read(file)) for file in uniq_files]
-        # Return lightcurves
         return SearchResults(uniq_files)
 
     @cached
@@ -357,7 +293,7 @@ class LightCurveDirectory:
         author=None,
         sector=None,
         limit=None,
-        has_sector_tree=True,
+        has_sector_tree=False,
         use_cache=True,
     ):
         """
@@ -483,9 +419,7 @@ class LightCurveDirectory:
         )
 
         # Search for local lightcurves
-        local_path = self.directories
-        if isinstance(local_path, str):
-            local_path = [Path(local_path)]
+        local_path = [self.directory]
 
         if not has_sector_tree:
             return self.search_lightcurve(
@@ -496,28 +430,28 @@ class LightCurveDirectory:
                 author=author,
                 sector=sector,
                 limit=limit,
+                use_cache=use_cache,
             )
         else:
             local_sector_name_dict = {}
-            for path in local_path:
+            for path in set(local_path):
                 path = Path(path)
                 for directory in [x.stem for x in path.iterdir() if x.is_dir()]:
                     if re.match(".*[0-9].*", directory):
-                        local_sector_name_dict[
-                            int(re.sub("[^0-9]", "", directory))
-                        ] = directory
+                        local_sector_name_dict[int(re.sub("[^0-9]", "", directory))] = (
+                            directory
+                        )
             if len(local_sector_name_dict) == 0:
-                raise ValueError(
-                    "Local directory is not constructed by different sectors"
-                )
+                warnings.warn("Local directory is not constructed by different sectors")
 
-        if len(self.obsid_path_dict) > 0:
-            cached_local_path = self.obsid_path_dict[target]
-            local_path = [
-                p if Path(lp) in p.parents else Path(lp)
-                for p in cached_local_path
-                for lp in local_path
-            ]
+        # Search with databse query
+        if self.cache_database_path.exists() and use_cache:
+            conn = sqlite3.connect(self.cache_database_path)
+            c = conn.cursor()
+            c.execute(f"SELECT file_path FROM tess_light_curve WHERE ticid={target}")
+            rows = c.fetchall()
+            conn.close()
+            local_path = [Path(row[0]) for row in rows]
 
         files = []
         for path in local_path:
@@ -546,7 +480,7 @@ class LightCurveDirectory:
 
 
 class SearchResults(object):
-    def __init__(self, results: list or set):
+    def __init__(self, results: list):
         self.results = sorted(results)
 
     def __iter__(self):
@@ -604,24 +538,19 @@ if __name__ == "__main__":
     from .search_local import LightCurveDirectory
 
     lc_dir = LightCurveDirectory(
-        [
-            "/home/ckm/.lightkurve-cache/mastDownload/HLSP",
-            "/home/ckm/.lightkurve-cache/mastDownload/TESS",
-        ],
+        "/storage/tess/spoc_full_cadence/S01/target/0000/0000/0819/6324/",
         use_cache=True,
-        scan_dir=True,
-        dump_scan_results=True,
+        scan_dir=False,
     )
-    print(
-        repr(
-            lc_dir.search_lightcurve(
-                441801208, exptime=120, author="SPOC", mission="TESS"
-            )
-        )
-    )
+
     print(
         lc_dir.search_lightcurve(
-            441801208, exptime=120, author=["SPOC", "QLP"], mission="TESS"
+            8196324, exptime=120, author=["SPOC", "QLP", "TESS-SPOC"], mission="TESS"
         ).load()
     )
-    # print(lc_dir.search_TESSlightcurve(25285075, exptime=120, author='SPOC'))
+
+    print(
+        lc_dir.search_TESSlightcurve(
+            8196324, exptime=120, author="TESS-SPOC", use_cache=False
+        )
+    )
