@@ -2,48 +2,42 @@
 
 ![PyPI](https://img.shields.io/pypi/v/lightkurve-ext?style=flat) ![PyPI - License](https://img.shields.io/pypi/l/lightkurve-ext)
 
-This is an extension for the [Lightkurve](https://github.com/lightkurve/lightkurve) package.
+Lightkurve-ext is an extension for the [Lightkurve](https://github.com/lightkurve/lightkurve) package, a Python library designed for the analysis of Kepler/K2/TESS light curves. While Lightkurve provides easy access to light curve data and basic analysis tools, Lightkurve-ext extends its functionality to meet specific requirements in daily work.
 
-Lightkurve (lk) is a Python package designed for the analysis of Kepler/K2/TESS light curves.
+## Features
 
-Thanks to lk, one can easily access the data of the light curves, and perform some basic analysis.
-Although it's excellent design greatly enhances productivity, I still have some own requirements on my daily work. Therefore, I created this extensive package. This package is still under development, and I will add more features in the future. If you have simialr requirements, please join me to make it better.
+- **Local Directory Search**: Lightkurve-ext provides a convenient interface to search for light curves from local directories. The `lkx.LightCurveDirectory` class can handle directories containing light curves. The `search_lightcurve()` method can search for light curve files in the directory and return them as a `lkx.SearchResults` object. These results can be loaded as a `lkx.LightCurveCollection` object with the `load()` method.
 
-Some features are listed below:
+- **Directory Scanning and Caching**: To speed up the search process, Lightkurve-ext allows you to scan your target directories and create a cache database. This can be done by setting `scan_dir=True`. Once you have finished the scanning, you can search for light curve files with `use_cache=True`, eliminating the need to re-scan your directories unless their content changes.
 
-- lk provides a conventient interface to search for light cuves from MAST, but usually I have already downloaded some data.
-So, I use similar API to implement a searching process on local directory. The `lkx.LightCurveDirectory` class can handle directories contain light curves. `search_lightcurve()` method can search for the light curve files in the above directory and return them as a `lkx.SearchResults` object. It can be simply loaded as a `lkx.LightCurveCollection` object with the `load()` method.
-- Before running the search, I highly recommend you to scan your target directories and crate a cache file. This can be done with a toggling `scan_dir=True` and dramatically accelerate your following search work. Once you have saved your cache file (with `dump_scan_resutls=True`), you can search for light curve files with `use_cache=True`, and no need to re-scan your directories until the content of directories are changed.
+Here's an example of how to use these features:
 
-For example
+```python
+import lightkurve_ext as lkx
+lkx_dir = lkx.LightCurveDirectory(local_path, use_cache=True, scan_dir=True)
+lkx_dir.search_lightcurve(target=ticid, exptime=120, author='SPOC').load()
+```
 
-    >>> import lightkurve_ext as lkx
-    >>> lkx_dir = lkx.LightCurveDirectory(local_path, use_cache=False, scan_dir=True, dump_scan_results=True)
-    >>> lkx_dir.search_lightcurve(target=ticid, exptime=120, author='SPOC').load()
-    
-    LightCurveCollection of 4 objects:
-    0: <TessLightCurve LABEL="TIC 386319774" SECTOR=44 AUTHOR=SPOC FLUX_ORIGIN=pdcsap_flux>
-    1: <TessLightCurve LABEL="TIC 386319774" SECTOR=6 AUTHOR=SPOC FLUX_ORIGIN=pdcsap_flux>
-    2: <TessLightCurve LABEL="TIC 386319774" SECTOR=33 AUTHOR=SPOC FLUX_ORIGIN=pdcsap_flux>
-    3: <TessLightCurve LABEL="TIC 386319774" SECTOR=45 AUTHOR=SPOC FLUX_ORIGIN=pdcsap_flux>
 
-Also the `search_TESSlightcurve()` function can search local TESS light curves more efficiently with a sector constructed directory.
 
-Moreover, I also supply a function for selecting light curves between different products (authors). That can be very useful when multiple products like SPOC and HLSP data are both available at a sector. To achieve this, use `select_lc_with_author_priority` method of our `lkx.LightCurveCollection` object and then return a `LightCurveCollection` as given author priority.
+- **Additional Methods for LightCurve and LightCurveCollection**: Lightkurve-ext extends the `LightCurve` and `LightCurveCollection` classes with additional methods to provide more flexibility and functionality for light curve analysis. 
+  
+    - **Author priority selection**: Lightkurve-ext provides a function for selecting light curves between different products (authors). This is useful when multiple products like SPOC and HLSP data are both available at a sector. To achieve this, use the `select_lc_with_author_priority` method of the `lkx.LightCurveCollection` object.
 
-- Overwrite the `LightCurve` and `LightCurveCollection` classes to add some useful methods. For instance, our  `stitch` method of `LightCurveCollection` can handle negative flux value and normalize it as the relative variability. The `split_by_gap` method of `LightCurve` object will split a light curve into different parts with a given gap threshold. I also added some new method for the `fill_gaps` method to make it support filling with NaN and zero.
+    - **Stitch light curves**: The `stitch` method of `LightCurveCollection` is designed to handle negative flux values, which can occur due to noise or other anomalies in the data. This method normalizes these values, treating them as relative variability. This allows for a more accurate and meaningful analysis of the light curve data.
+
+    - **Split light curve by gaps**: The `split_by_gap` method of the `LightCurve` object is used when a light curve needs to be divided into different segments based on a specified gap threshold. This is particularly useful when analyzing light curves that have significant gaps or discontinuities. By splitting the light curve into smaller, continuous segments, each segment can be analyzed separately, providing more detailed and accurate results.
+
+    - **Fill gaps**: The `fill_gaps` method has been enhanced to support filling gaps in the light curve data with NaN (Not a Number) or zero. This is useful when dealing with missing or incomplete data. By filling these gaps, the continuity of the light curve can be maintained, which is important for many types of light curve analysis.
 
 ## Installation
-Easy to install `lightkurve-ext` with pip:
-
+You can install Lightkurve-ext using pip:
 ```
 pip install lightkurve-ext -U
 ```
-
-Or install from source:
-
+Or install from source (recommended because the package is still under development):
 ```
-git clone https://github.com/ckm3/lightkurve-ext.git
+git clone git clone https://github.com/ckm3/lightkurve-ext.git
 cd lightkurve-ext
 pip install .
 ```
