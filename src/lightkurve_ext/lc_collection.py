@@ -84,6 +84,8 @@ class LightCurveCollection(lk.LightCurveCollection):
 class LightCurve(lk.LightCurve):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if "TSTART" not in self.meta:
+            self.meta["TSTART"] = self.time.value[0]
 
     def astronet_normalize(self):
         lc = self.copy()
@@ -117,7 +119,7 @@ class LightCurve(lk.LightCurve):
                 ]
 
     def fill_gaps(self, method: str = "gaussian_noise"):
-        """Fill in gaps in time.
+        r"""Fill in gaps in time.
         Adopted from ``lightkurve`` package with few modification to support other methods.
 
         By default, the gaps will be filled with random white Gaussian noise
