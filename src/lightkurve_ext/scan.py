@@ -118,6 +118,7 @@ def cache_obsid_path(
         dir_path = Path(dir_path)
         obsid_path_list = get_obsid_path_dict_from_single_path(dir_path)
         write_tess_lc_database(cache_dir, obsid_path_list)
+        print("Successfully cache the light curve files in {}".format(dir_path))
     else:
         raise TypeError(
             "dir_path must be a str or Path object or a list of str or Path object"
