@@ -6,6 +6,12 @@ import sqlite3
 from typing import Union
 from tqdm import tqdm
 from pathlib import Path
+import logging
+import time
+
+# Create a logger
+logger = logging.getLogger('database_logger')
+logger.setLevel(logging.DEBUG)  # Set the logging level
 
 def initialize_cache_dir() -> Path:
     """Initialize the cache directory for the obsid_path_dict"""
@@ -51,9 +57,15 @@ def cache_obsid_path(
         dict: obsid and paths of the files
     """
     cache_dir = initialize_cache_dir()
-
+    # Create a file handler
+    handler = logging.FileHandler(cache_dir.parent / 'database.log')
+    handler.setLevel(logging.DEBUG)  # Set the handler level
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    
     def get_obsid_path_dict_from_single_path(path: Path) -> dict:
-        tqdm.write("Scanning path: {}".format(path))
+        tqdm.write("Scanning available LC products in path: {}".format(path))
         output_list = []
         for file_path in tqdm(path.rglob("*.fits")):
             file_name = file_path.name
@@ -119,6 +131,7 @@ def cache_obsid_path(
         obsid_path_list = get_obsid_path_dict_from_single_path(dir_path)
         write_tess_lc_database(cache_dir, obsid_path_list)
         print("Successfully cache the light curve files in {}".format(dir_path))
+        logger.info("Successfully cache the light curve files in {}".format(dir_path))
     else:
         raise TypeError(
             "dir_path must be a str or Path object or a list of str or Path object"
