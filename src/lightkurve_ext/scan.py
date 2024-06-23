@@ -20,7 +20,7 @@ def initialize_cache_dir() -> Path:
         cache_dir.mkdir()
         print("Successfully create cache directory at {}".format(cache_dir))
     else:
-        print("Cache directory already exists at {}".format(cache_dir))
+        print("Cache directory exists at {}".format(cache_dir))
     return cache_dir
 
 def write_tess_lc_database(cache_dir, search_results) -> None:
@@ -58,14 +58,14 @@ def cache_obsid_path(
     """
     cache_dir = initialize_cache_dir()
     # Create a file handler
-    handler = logging.FileHandler(cache_dir.parent / 'database.log')
+    handler = logging.FileHandler(cache_dir / 'database.log')
     handler.setLevel(logging.DEBUG)  # Set the handler level
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     
     def get_obsid_path_dict_from_single_path(path: Path) -> dict:
-        tqdm.write("Scanning available LC products in path: {}".format(path))
+        tqdm.write("Scanning available light curve products in path: {}".format(path))
         output_list = []
         for file_path in tqdm(path.rglob("*.fits")):
             file_name = file_path.name
