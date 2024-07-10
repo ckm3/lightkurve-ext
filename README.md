@@ -37,7 +37,7 @@ pip install lightkurve-ext -U
 ```
 Or install from source (recommended because the package is still under development):
 ```
-git clone git clone https://github.com/ckm3/lightkurve-ext.git
+git clone https://github.com/ckm3/lightkurve-ext.git
 cd lightkurve-ext
 pip install .
 ```
