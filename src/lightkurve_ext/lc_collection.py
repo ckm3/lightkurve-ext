@@ -13,7 +13,7 @@ from .helper_func import _revise_author
 class LightCurveCollection(lk.LightCurveCollection):
     def __init__(self, lightcurves):
         lightcurves = [LightCurve(lc) for lc in lightcurves]
-        sorted_lightcurves = sorted(lightcurves, key=lambda x: x.meta.get("TSTART"))
+        sorted_lightcurves = sorted(lightcurves, key=lambda x: x.time.value[0])
         super().__init__(sorted_lightcurves)
 
     def _norm_var(self, lc):
@@ -84,8 +84,6 @@ class LightCurveCollection(lk.LightCurveCollection):
 class LightCurve(lk.LightCurve):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if "TSTART" not in self.meta:
-            self.meta["TSTART"] = self.time.value[0]
 
     def astronet_normalize(self):
         lc = self.copy()
