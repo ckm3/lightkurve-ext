@@ -99,6 +99,35 @@ class LightCurve(lk.LightCurve):
 
         lc.meta["NORMALIZED"] = True
         return lc
+    
+    def _norm_var(self, lc):
+        lc = lc.copy()
+        # This normlization can handle the negative flux values.
+        if isinstance(lc.flux, MaskedNDArray):
+            median_flux = np.nanmedian(lc.flux.data)
+        else:
+            median_flux = np.nanmedian(lc.flux.value)
+
+        if np.isclose(median_flux, 0, rtol=1e-5):
+            return lc
+
+        lc["flux"] = Quantity(
+            (lc.flux.value - median_flux) / np.abs(median_flux),
+            unit=u.dimensionless_unscaled,
+        )
+
+        # The flux error is not well processed, I will probably use uncertainties to handle it.
+        lc["flux_err"] = Quantity(
+            lc["flux_err"].value / np.abs(median_flux), unit=u.dimensionless_unscaled
+        )
+        lc.meta["NORMALIZED"] = True
+        return lc
+
+    def normalize(self, unit="unscaled", method='robust_relative'):
+        if method == 'robust_relative':
+            return self._norm_var(self)
+        elif method == 'lightkurve':
+            return super().normalize(unit=unit)
 
     def split_by_gap(self, gap_threshold=1):
         lc = self.copy()
