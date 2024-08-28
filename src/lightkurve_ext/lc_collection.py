@@ -156,7 +156,7 @@ class LightCurve(lk.LightCurve):
 
         Parameters
         ----------
-        method : string {'gaussian_noise'}
+        method : string {'gaussian_noise'} or float or int
             Method to use for gap filling. Fills with Gaussian noise by default.
 
         Returns
@@ -214,7 +214,7 @@ class LightCurve(lk.LightCurve):
                 ntime[~in_original], lc.time.value, lc.flux_err
             )
 
-        if method == "gaussian_noise":
+        if isinstance(method, str) and method == "gaussian_noise":
             try:
                 std = lc.estimate_cdpp().to(lc.flux.unit).value
             except:
@@ -222,10 +222,10 @@ class LightCurve(lk.LightCurve):
             f[~in_original] = np.random.normal(
                 np.nanmean(lc.flux.value), std, (~in_original).sum()
             )
-        elif method.casefold() == "NaN".casefold():
+        elif isinstance(method, str) and method.casefold() == "NaN".casefold():
             f[~in_original] = np.nan
-        elif method == "zero":
-            f[~in_original] = 0
+        elif isinstance(method, (int, float)):
+            f[~in_original] = method
         else:
             raise NotImplementedError("No such method as {}".format(method))
 
