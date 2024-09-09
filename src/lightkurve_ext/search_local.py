@@ -59,6 +59,8 @@ class LightCurveDirectory:
         """
         if isinstance(directory, str) or isinstance(directory, Path):
             self.directory = Path(directory)
+        elif isinstance(directory, list):
+            self.directory = directory
         else:
             raise TypeError(
                 "directory must be a string or pathlib.Path object or a list of strings or pathlib.Path objects"
