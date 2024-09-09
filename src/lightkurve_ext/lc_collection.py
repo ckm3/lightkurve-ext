@@ -44,6 +44,8 @@ class LightCurveCollection(lk.LightCurveCollection):
 
             def corrector_func(x):
                 return self._norm_var(x)
+        elif corrector_func == "lightkurve":
+            corrector_func = lambda x: x.normalize(method="lightkurve")
 
         lc = lk.LightCurveCollection.stitch(self, corrector_func=corrector_func)
         lc = LightCurve(lc)
